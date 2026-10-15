@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="CoreMod/CoreMod.csproj" />
+  <Project Path="RecordMod/RecordMod.csproj" />
+  <Project Path="TrainMod/TrainMod.csproj" />
+</Solution>

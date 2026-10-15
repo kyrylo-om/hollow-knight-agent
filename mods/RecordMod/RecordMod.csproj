@@ -1,11 +1,11 @@
 ﻿<!-- Credit to SFGrenade https://github.com/SFGrenade -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNamespace>HKMod</RootNamespace>
-    <AssemblyName>HKMod</AssemblyName>
+    <RootNamespace>RecordMod</RootNamespace>
+    <AssemblyName>RecordMod</AssemblyName>
     <TargetFramework>net472</TargetFramework>
-    <AssemblyTitle>HKMod</AssemblyTitle>
-    <Product>HKMod</Product>
+    <AssemblyTitle>RecordMod</AssemblyTitle>
+    <Product>RecordMod</Product>
     <Description>A Hollow Knight mod.</Description>
     <Copyright>Copyright © </Copyright>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
@@ -22,7 +22,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <!-- Path to DLL references required to build mod -->
-    <LocalRefs>/home/kyrylo/.local/share/Steam/steamapps/common/Hollow Knight/hollow_knight_Data/Managed</LocalRefs>
+    <LocalRefs>$(HollowKnightManagedPath)</LocalRefs>
     <!-- Path to Mods folder -->
     <ModsPath>$(LocalRefs)/Mods</ModsPath>
     <!-- The folder that exports will be generated in -->
@@ -334,7 +334,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <None Include=".gitignore" />
-    <None Include="ReadMe.md" />
+    <ProjectReference Include="../CoreMod/CoreMod.csproj" Private="false" />
   </ItemGroup>
 </Project>

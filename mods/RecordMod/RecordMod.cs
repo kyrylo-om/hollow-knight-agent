@@ -6,13 +6,13 @@ using System.Reflection;
 using UnityEngine;
 using UObject = UnityEngine.Object;
 
-namespace HKMod
+namespace RecordMod
 {
-    internal class HKMod : Mod
+    internal class RecordMod : Mod
     {
-        internal static HKMod Instance { get; private set; }
+        internal static RecordMod Instance { get; private set; }
 
-        public HKMod() : base("HKMod") { }
+        public RecordMod() : base("RecordMod") { }
 
         public override string GetVersion()
         {

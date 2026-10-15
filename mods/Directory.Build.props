@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Hollow Knight's Managed directory; mods are installed into $(HollowKnightManagedPath)/Mods -->
+    <HollowKnightManagedPath></HollowKnightManagedPath>
+  </PropertyGroup>
+</Project>
