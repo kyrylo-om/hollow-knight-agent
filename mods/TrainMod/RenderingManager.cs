@@ -1,42 +1,26 @@
-// -------------------------------------------------------------------------------------------------
-// Copyright (c) 2026 Antigravity / Hollow Knight Agent Team
-// Licensed under GNU Affero General Public License v3.0
-// -------------------------------------------------------------------------------------------------
-
 using System;
 using System.Collections.Generic;
-using Modding;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityStandardAssets.ImageEffects;
 
 namespace TrainMod
 {
     /// <summary>
-    /// Controls camera rendering, VSync, framerate uncapping, and simulation time scale
-    /// to enable ultra-fast execution for machine learning and AI agent training.
+    /// Turns scene rendering off and on (with VSync and the framerate cap) to speed up AI agent training.
     /// </summary>
     public static class RenderingManager
     {
-        /// <summary>
-        /// Whether scene rendering is currently active.
-        /// When false, camera culling masks are set to 0, VSync is disabled, and framerates are uncapped.
-        /// </summary>
         public static bool IsRenderingEnabled { get; private set; } = true;
 
-        /// <summary>
-        /// Available simulation speed multipliers.
-        /// </summary>
-        public static readonly float[] SpeedPresets = new float[] { 0.5f, 1.0f, 2.0f, 5.0f, 10.0f, 20.0f };
-
-        private static int _currentSpeedIndex = 1; // Default: 1.0f
         private static readonly Dictionary<Camera, int> _savedCullingMasks = new Dictionary<Camera, int>();
+        private static readonly Dictionary<Behaviour, bool> _savedImageEffects = new Dictionary<Behaviour, bool>();
         private static int _savedVSync = 1;
         private static int _savedTargetFrameRate = -1;
         private static bool _isHooked;
 
         /// <summary>
-        /// Hook into scene loading to ensure newly created cameras also have rendering disabled
-        /// when running in headless / no-render mode.
+        /// Hook into scene loading so cameras in newly loaded scenes are also culled while rendering is off.
         /// </summary>
         public static void Hook()
         {
@@ -46,7 +30,7 @@ namespace TrainMod
         }
 
         /// <summary>
-        /// Unhook scene loading listeners and restore normal rendering and time scale.
+        /// Unhook scene loading listeners and restore normal rendering.
         /// </summary>
         public static void Unhook()
         {
@@ -58,23 +42,14 @@ namespace TrainMod
             {
                 SetRendering(true);
             }
-
-            ResetTimeScale();
         }
 
-        /// <summary>
-        /// Toggles rendering on and off.
-        /// </summary>
         public static bool ToggleRendering()
         {
             SetRendering(!IsRenderingEnabled);
             return IsRenderingEnabled;
         }
 
-        /// <summary>
-        /// Enables or disables scene rendering.
-        /// Disabling rendering clears camera culling masks to 0 and removes VSync/framerate caps.
-        /// </summary>
         public static void SetRendering(bool enable)
         {
             if (IsRenderingEnabled == enable) return;
@@ -83,55 +58,32 @@ namespace TrainMod
 
             if (!enable)
             {
-                // 1. Save original VSync and Framerate settings
                 _savedVSync = QualitySettings.vSyncCount;
                 _savedTargetFrameRate = Application.targetFrameRate;
 
-                // 2. Uncap engine execution so the CPU loop runs at maximum speed
+                // Uncap engine execution so the CPU loop runs at maximum speed
                 QualitySettings.vSyncCount = 0;
                 Application.targetFrameRate = -1;
 
-                // 3. Set camera culling masks to 0 (culls active layers, 0 draw calls, 0 sprite rendering)
                 ApplyNoRenderingToActiveCameras();
-
-                // 4. Disable image effects if GameCameras is available
-                try
-                {
-                    if (GameCameras.instance != null)
-                    {
-                        GameCameras.instance.DisableImageEffects();
-                    }
-                }
-                catch { }
+                DisableImageEffects();
 
                 Modding.Logger.Log("[RenderingManager] Rendering DISABLED. Culling masks set to 0, VSync disabled, framerate uncapped.");
             }
             else
             {
-                // 1. Restore VSync and Target Framerate
                 QualitySettings.vSyncCount = _savedVSync;
                 Application.targetFrameRate = _savedTargetFrameRate;
 
-                // 2. Restore camera culling masks
                 RestoreActiveCameras();
-
-                // 3. Re-enable image effects
-                try
-                {
-                    if (GameCameras.instance != null)
-                    {
-                        GameCameras.instance.EnableImageEffects(true, true);
-                    }
-                }
-                catch { }
+                RestoreImageEffects();
 
                 Modding.Logger.Log("[RenderingManager] Rendering ENABLED. Restored camera culling masks and display settings.");
             }
         }
 
         /// <summary>
-        /// Applies cullingMask = 0 to active rendering cameras while caching their original values.
-        /// Ignores cameras that already have cullingMask == 0 (such as letterbox border clearers).
+        /// Sets cullingMask = 0 on active cameras, caching their original values.
         /// </summary>
         private static void ApplyNoRenderingToActiveCameras()
         {
@@ -155,9 +107,6 @@ namespace TrainMod
             }
         }
 
-        /// <summary>
-        /// Restores cached culling masks to all cameras.
-        /// </summary>
         private static void RestoreActiveCameras()
         {
             foreach (var kvp in _savedCullingMasks)
@@ -171,69 +120,55 @@ namespace TrainMod
             _savedCullingMasks.Clear();
         }
 
+        /// <summary>
+        /// Disables the image effects that GameCameras.DisableImageEffects turns off, caching their original enabled state.
+        /// </summary>
+        private static void DisableImageEffects()
+        {
+            try
+            {
+                if (GameCameras.instance == null || GameCameras.instance.mainCamera == null) return;
+
+                Camera cam = GameCameras.instance.mainCamera;
+                foreach (Behaviour effect in new Behaviour[] { cam.GetComponent<FastNoise>(), cam.GetComponent<BloomOptimized>(), cam.GetComponent<ColorCorrectionCurves>() })
+                {
+                    if (effect == null) continue;
+                    _savedImageEffects[effect] = effect.enabled;
+                    effect.enabled = false;
+                }
+            }
+            catch (Exception e)
+            {
+                Modding.Logger.LogWarn($"[RenderingManager] Failed to disable image effects: {e}");
+            }
+        }
+
+        private static void RestoreImageEffects()
+        {
+            try
+            {
+                foreach (var kvp in _savedImageEffects)
+                {
+                    if (kvp.Key != null)
+                    {
+                        kvp.Key.enabled = kvp.Value;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Modding.Logger.LogWarn($"[RenderingManager] Failed to restore image effects: {e}");
+            }
+
+            _savedImageEffects.Clear();
+        }
+
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // If running with rendering disabled, ensure any new cameras in the loaded scene are also culled
             if (!IsRenderingEnabled)
             {
                 ApplyNoRenderingToActiveCameras();
             }
         }
-
-        #region Time Scale Controls
-
-        /// <summary>
-        /// Gets the current simulation time scale multiplier.
-        /// </summary>
-        public static float CurrentTimeScale => Time.timeScale;
-
-        /// <summary>
-        /// Sets a custom simulation time scale (clamped to a minimum of 0.05).
-        /// </summary>
-        public static void SetTimeScale(float scale)
-        {
-            float target = Mathf.Max(0.05f, scale);
-            Time.timeScale = target;
-            Modding.Logger.Log($"[RenderingManager] Time scale set to: {target:F1}x");
-        }
-
-        /// <summary>
-        /// Increases the simulation speed to the next preset multiplier.
-        /// </summary>
-        public static float IncreaseSpeed()
-        {
-            if (_currentSpeedIndex < SpeedPresets.Length - 1)
-            {
-                _currentSpeedIndex++;
-            }
-            float target = SpeedPresets[_currentSpeedIndex];
-            SetTimeScale(target);
-            return target;
-        }
-
-        /// <summary>
-        /// Decreases the simulation speed to the previous preset multiplier.
-        /// </summary>
-        public static float DecreaseSpeed()
-        {
-            if (_currentSpeedIndex > 0)
-            {
-                _currentSpeedIndex--;
-            }
-            float target = SpeedPresets[_currentSpeedIndex];
-            SetTimeScale(target);
-            return target;
-        }
-
-        /// <summary>
-        /// Resets the simulation speed back to standard real-time (1.0x).
-        /// </summary>
-        public static void ResetTimeScale()
-        {
-            _currentSpeedIndex = 1; // 1.0f
-            SetTimeScale(1.0f);
-        }
-
-        #endregion
     }
 }

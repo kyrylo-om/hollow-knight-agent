@@ -69,9 +69,6 @@
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>$(LocalRefs)/Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
-    <Reference Include="GalaxyCSharp">
-      <HintPath>$(LocalRefs)/GalaxyCSharp.dll</HintPath>
-    </Reference>
     <Reference Include="MMHOOK_Assembly-CSharp">
       <HintPath>$(LocalRefs)/MMHOOK_Assembly-CSharp.dll</HintPath>
     </Reference>
@@ -149,9 +146,6 @@
     </Reference>
     <Reference Include="UnityEngine.AnimationModule">
       <HintPath>$(LocalRefs)/UnityEngine.AnimationModule.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.ARModule">
-      <HintPath>$(LocalRefs)/UnityEngine.ARModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AssetBundleModule">
       <HintPath>$(LocalRefs)/UnityEngine.AssetBundleModule.dll</HintPath>

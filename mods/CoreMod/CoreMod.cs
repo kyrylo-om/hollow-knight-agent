@@ -1,42 +1,26 @@
-using System;
-using System.Reflection;
 using Modding;
+using UnityEngine;
 
 namespace CoreMod
 {
-    public class CoreMod : Mod, ITogglableMod
+    public class CoreMod : Mod
     {
-        public static CoreMod Instance { get; private set; }
-        private bool _isHooked;
-
         public CoreMod() : base("CoreMod") { }
 
-        public override string GetVersion()
-        {
-            Version version = Assembly.GetExecutingAssembly().GetName().Version;
-            return version != null ? version.ToString() : "1.0.0.0";
-        }
+        public override string GetVersion() => GetType().Assembly.GetName().Version.ToString();
 
         public override void Initialize()
         {
-            if (_isHooked) return;
-            Instance = this;
-
-            Log("Initializing CoreMod (PantheonPracticeApi)...");
-            PantheonPracticeApi.Hook();
-            _isHooked = true;
-
-            Log("Initialized CoreMod.");
+            ModHooks.HeroUpdateHook += OnHeroUpdate;
         }
 
-        public void Unload()
+        private void OnHeroUpdate()
         {
-            if (!_isHooked) return;
-
-            PantheonPracticeApi.Unhook();
-            _isHooked = false;
-
-            Log("Unloaded CoreMod.");
+            if (Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5))
+            {
+                Log("[Hotkey 5] Restarting boss encounter...");
+                BossSceneHelper.ReloadBoss();
+            }
         }
     }
 }
