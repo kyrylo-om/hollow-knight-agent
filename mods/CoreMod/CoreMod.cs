@@ -1,31 +1,42 @@
-﻿using Modding;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
-using UObject = UnityEngine.Object;
+using Modding;
 
 namespace CoreMod
 {
-    internal class CoreMod : Mod
+    public class CoreMod : Mod, ITogglableMod
     {
-        internal static CoreMod Instance { get; private set; }
+        public static CoreMod Instance { get; private set; }
+        private bool _isHooked;
 
         public CoreMod() : base("CoreMod") { }
 
         public override string GetVersion()
         {
-            return Assembly.GetExecutingAssembly().GetName().Version.ToString();
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            return version != null ? version.ToString() : "1.0.0.0";
         }
 
         public override void Initialize()
         {
-            Log("Initializing");
-
+            if (_isHooked) return;
             Instance = this;
 
-            Log("Initialized");
+            Log("Initializing CoreMod (PantheonPracticeApi)...");
+            PantheonPracticeApi.Hook();
+            _isHooked = true;
+
+            Log("Initialized CoreMod.");
+        }
+
+        public void Unload()
+        {
+            if (!_isHooked) return;
+
+            PantheonPracticeApi.Unhook();
+            _isHooked = false;
+
+            Log("Unloaded CoreMod.");
         }
     }
 }
