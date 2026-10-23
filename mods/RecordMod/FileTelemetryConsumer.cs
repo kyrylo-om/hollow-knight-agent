@@ -134,13 +134,10 @@ namespace RecordMod
                     _totalFramesRecorded++;
                 }
 
-                lock (_stateLock)
+                FlushBuffer();
+                if (_fileStream != null)
                 {
-                    FlushBuffer();
-                    if (_fileStream != null)
-                    {
-                        _fileStream.Flush();
-                    }
+                    _fileStream.Flush();
                 }
             }
             catch (Exception ex)

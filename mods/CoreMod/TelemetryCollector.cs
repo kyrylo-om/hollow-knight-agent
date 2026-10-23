@@ -11,6 +11,7 @@ namespace CoreMod
     public static class TelemetryCollector
     {
         private static bool _active;
+        private static bool _episodeCompleted;
         private static uint _frameId;
         private static int _prevKnightHp;
         private static int _prevBossHp;
@@ -38,6 +39,14 @@ namespace CoreMod
                 {
                     EndEpisode();
                 }
+                _episodeCompleted = false;
+                return;
+            }
+
+            // Once the fight concludes (boss defeated or knight died), stop recording
+            // while the death animation / Godhome transition plays out.
+            if (_episodeCompleted)
+            {
                 return;
             }
 
@@ -53,6 +62,7 @@ namespace CoreMod
             if (frame.IsDone != EpisodeStatus.InProgress)
             {
                 EndEpisode();
+                _episodeCompleted = true;
             }
 
             _frameId++;
@@ -65,6 +75,7 @@ namespace CoreMod
         private static void BeginEpisode()
         {
             _active = true;
+            _episodeCompleted = false;
             _frameId = 0;
             _prevKnightHp = PlayerData.instance.health;
             _invulnRemaining = 0f;
