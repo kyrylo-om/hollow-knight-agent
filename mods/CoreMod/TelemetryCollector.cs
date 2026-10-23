@@ -16,6 +16,7 @@ namespace CoreMod
         private static int _prevBossHp;
         private static float _invulnRemaining;
 
+        private static BossInfo _bossInfo;
         private static HealthManager _boss;
         private static Rigidbody2D _bossBody;
         private static Collider2D _bossCollider;
@@ -67,6 +68,7 @@ namespace CoreMod
             _frameId = 0;
             _prevKnightHp = PlayerData.instance.health;
             _invulnRemaining = 0f;
+            _bossInfo = BossRegistry.FindBossByScene(GameManager.instance.GetSceneNameString());
             BindBoss(null);
 
             EpisodeFileHeader header = BuildEpisodeHeader();
@@ -85,13 +87,12 @@ namespace CoreMod
         private static EpisodeFileHeader BuildEpisodeHeader()
         {
             PlayerData pd = PlayerData.instance;
-            BossInfo boss = Globals.FindBossByScene(GameManager.instance.GetSceneNameString());
 
             return new EpisodeFileHeader
             {
                 Magic = EpisodeFileHeader.ExpectedMagic,
-                BossId = boss != null ? boss.Id : Globals.UnknownBossId,
-                BossDifficulty = (byte)(BossSceneController.Instance != null ? BossSceneController.Instance.BossLevel : 0),
+                BossId = _bossInfo != null ? _bossInfo.Id : BossRegistry.UnknownBossId,
+                BossDifficulty = (byte)BossSceneController.Instance.BossLevel,
                 NailDamage = (byte)pd.nailDamage,
                 MaxHealth = (byte)pd.maxHealth,
                 Reserved = 0
@@ -118,8 +119,12 @@ namespace CoreMod
 
         private static PlayMakerFSM FindBossFsm(HealthManager boss)
         {
-            PlayMakerFSM[] fsms = boss.GetComponents<PlayMakerFSM>();
-            return fsms.FirstOrDefault(fsm => fsm.FsmName == "Control") ?? fsms.FirstOrDefault();
+            if (_bossInfo == null)
+            {
+                return null;
+            }
+
+            return boss.GetComponents<PlayMakerFSM>().FirstOrDefault(fsm => fsm.FsmName == _bossInfo.Fsm.Name);
         }
 
         // =====================================================================
@@ -297,7 +302,7 @@ namespace CoreMod
 
         private static void FillKnight(ref FrameDataHeader f, HeroController hc, PlayerData pd)
         {
-            Vector2 position = hc.transform.position;
+            Vector2 position = hc.GetComponent<Collider2D>().bounds.center;
             Vector2 velocity = hc.GetComponent<Rigidbody2D>().velocity;
             float nailCooldown = ReflectionHelper.GetField<HeroController, float>(hc, "attack_cooldown");
             float dashCooldown = ReflectionHelper.GetField<HeroController, float>(hc, "dashCooldownTimer");
@@ -389,7 +394,8 @@ namespace CoreMod
             }
         }
 
-        private static ushort StateId(string stateName) => (ushort)Animator.StringToHash(stateName);
+        private static ushort StateId(string stateName) =>
+            BossFsm.Pack(_bossInfo.Id, _bossInfo.Fsm.StateId(stateName));
 
         private static bool BossFacingRight() => _boss != null && _boss.transform.localScale.x > 0f;
 
@@ -478,8 +484,12 @@ namespace CoreMod
             $"flags={f.KnightFlags}) " +
             $"B(pos={f.BossX:F2},{f.BossY:F2} vel={f.BossVx:F2},{f.BossVy:F2} " +
             $"bounds={f.BossBoundWidth:F2}x{f.BossBoundHeight:F2} hp={f.BossHp} " +
-            $"fsm={f.BossFsmState} prev={f.PrevFsmState} t={f.FsmStateTime:F2}) " +
+            $"fsm=\"{StateName(f.BossFsmState)}\" prev=\"{StateName(f.PrevFsmState)}\" t={f.FsmStateTime:F2}) " +
             $"frame={f.Flags} entities={f.EntityCount} " +
             $"in(pressed={f.ActionPressed} held={f.ActionHeld})";
+
+        // Low byte of a packed FSM state is the state id; the high byte is the boss id.
+        private static string StateName(ushort packedState) =>
+            _bossInfo?.Fsm.StateName((byte)packedState) ?? "?";
     }
 }

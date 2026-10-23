@@ -104,7 +104,7 @@ namespace CoreMod
         public ulong Magic;               // 0x3330415441444B48 ("HKDATA03" ASCII little-endian) (8 bytes)
 
         // 1-byte fields (Offsets 8..11)
-        public byte BossId;               // BossInfo.Id from Globals.Bosses, 0 = unknown (1 byte)
+        public byte BossId;               // BossInfo.Id from BossRegistry.Bosses, 0 = unknown (1 byte)
         public byte BossDifficulty;       // 0 = Attuned, 1 = Ascended, 2 = Radiant (1 byte)
         public byte NailDamage;           // 5 (Old), 9 (Sharpened), 13 (Channeled), 17 (Coiled), 21 (Pure) (1 byte)
         public byte MaxHealth;            // Max masks (5..9) (1 byte)
@@ -172,8 +172,8 @@ namespace CoreMod
 
         // --- 2-byte fields (6 bytes: Offsets 68..73) ---
         public KnightFlags KnightFlags;   // Bitmask of knight movement/combat state (2 bytes)
-        public ushort BossFsmState;       // Hash/ID of active Boss FSM state (2 bytes)
-        public ushort PrevFsmState;       // Hash/ID of previous Boss FSM state (2 bytes)
+        public ushort BossFsmState;       // Active boss FSM state: BossId << 8 | BossFsms state id (2 bytes)
+        public ushort PrevFsmState;       // Previous boss FSM state, same encoding (2 bytes)
 
         // --- 1-byte fields (8 bytes: Offsets 74..81) ---
         public byte KnightHp;             // Current HP (0..9) (1 byte)
