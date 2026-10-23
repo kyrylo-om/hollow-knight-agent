@@ -68,7 +68,7 @@ namespace RecordMod
 
                     WriteEpisodeHeader(in header);
 
-                    _queue = [with(new ConcurrentQueue<QueuedPacket>())];
+                    _queue = new BlockingCollection<QueuedPacket>(new ConcurrentQueue<QueuedPacket>());
                     _writerThread = new Thread(DiskWriterLoop)
                     {
                         Name = "RecordMod_DiskWriter",
