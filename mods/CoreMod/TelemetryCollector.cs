@@ -10,13 +10,6 @@ namespace CoreMod
     /// </summary>
     public static class TelemetryCollector
     {
-        // TODO placeholders until a boss registry / arena bounds exist
-        private const byte PlaceholderBossId = 0;
-        private const float PlaceholderArenaMinX = 0f;
-        private const float PlaceholderArenaMaxX = 0f;
-        private const float PlaceholderArenaMinY = 0f;
-        private const float PlaceholderArenaMaxY = 0f;
-
         private static bool _active;
         private static uint _frameId;
         private static int _prevKnightHp;
@@ -70,15 +63,12 @@ namespace CoreMod
         private static EpisodeFileHeader BuildEpisodeHeader()
         {
             PlayerData pd = PlayerData.instance;
+            BossInfo boss = Globals.FindBossByScene(GameManager.instance.GetSceneNameString());
 
             return new EpisodeFileHeader
             {
                 Magic = EpisodeFileHeader.ExpectedMagic,
-                ArenaMinX = PlaceholderArenaMinX,
-                ArenaMaxX = PlaceholderArenaMaxX,
-                ArenaMinY = PlaceholderArenaMinY,
-                ArenaMaxY = PlaceholderArenaMaxY,
-                BossId = PlaceholderBossId,
+                BossId = boss != null ? boss.Id : Globals.UnknownBossId,
                 BossDifficulty = (byte)BossSceneController.Instance.BossLevel,
                 NailDamage = (byte)pd.nailDamage,
                 MaxHealth = (byte)pd.maxHealth,
@@ -317,8 +307,7 @@ namespace CoreMod
 
         private static string Format(EpisodeFileHeader h) =>
             $"[Telemetry] EPISODE magic=0x{h.Magic:X16} boss={h.BossId} diff={h.BossDifficulty} " +
-            $"nail={h.NailDamage} maxHp={h.MaxHealth} " +
-            $"arena=({h.ArenaMinX:F2}..{h.ArenaMaxX:F2}, {h.ArenaMinY:F2}..{h.ArenaMaxY:F2})";
+            $"nail={h.NailDamage} maxHp={h.MaxHealth}";
 
         private static string Format(FrameDataHeader f) =>
             $"[Telemetry] F={f.FrameId} status={f.IsDone} " +

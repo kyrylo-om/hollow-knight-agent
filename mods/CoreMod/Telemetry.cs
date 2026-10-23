@@ -95,7 +95,7 @@ namespace CoreMod
     }
 
     // =========================================================================
-    // 1. Episode File Header (Written ONCE at file start: 32 bytes)
+    // 1. Episode File Header (Written ONCE at file start: 16 bytes)
     // =========================================================================
     [StructLayout(LayoutKind.Sequential)]
     public struct EpisodeFileHeader
@@ -103,20 +103,14 @@ namespace CoreMod
         // 8-byte field (Offset 0..7)
         public ulong Magic;               // 0x3330415441444B48 ("HKDATA03" ASCII little-endian) (8 bytes)
 
-        // 4-byte fields (Offsets 8..23)
-        public float ArenaMinX;           // Left wall coordinate (4 bytes)
-        public float ArenaMaxX;           // Right wall coordinate (4 bytes)
-        public float ArenaMinY;           // Floor coordinate (4 bytes)
-        public float ArenaMaxY;           // Ceiling coordinate (4 bytes)
-
-        // 1-byte fields (Offsets 24..27)
-        public byte BossId;               // Boss registry index (1 byte)
+        // 1-byte fields (Offsets 8..11)
+        public byte BossId;               // BossInfo.Id from Globals.Bosses, 0 = unknown (1 byte)
         public byte BossDifficulty;       // 0 = Attuned, 1 = Ascended, 2 = Radiant (1 byte)
         public byte NailDamage;           // 5 (Old), 9 (Sharpened), 13 (Channeled), 17 (Coiled), 21 (Pure) (1 byte)
         public byte MaxHealth;            // Max masks (5..9) (1 byte)
 
-        // Trailing padding field (Offsets 28..31) -> aligns struct to 32 bytes (multiple of 8)
-        public int Reserved;              // Alignment padding to 32 bytes (4 bytes)
+        // Trailing padding field (Offsets 12..15) -> aligns struct to 16 bytes (multiple of 8)
+        public int Reserved;              // Alignment padding to 16 bytes (4 bytes)
 
         public static readonly ulong ExpectedMagic = 0x3330415441444B48; // "HKDATA03"
     }
