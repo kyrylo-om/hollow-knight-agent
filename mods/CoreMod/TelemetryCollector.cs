@@ -23,6 +23,8 @@ namespace CoreMod
         private static ushort _bossFsmState;
         private static ushort _prevBossFsmState;
         private static float _fsmStateTime;
+        private static readonly EntityData[] _entities = new EntityData[64];
+        private static int _entityCount;
 
         /// <summary>
         /// Call once per FixedUpdate. Does nothing outside boss scenes.
@@ -31,7 +33,10 @@ namespace CoreMod
         {
             if (BossSceneController.Instance == null || HeroController.instance == null)
             {
-                _active = false;
+                if (_active)
+                {
+                    EndEpisode();
+                }
                 return;
             }
 
@@ -42,6 +47,13 @@ namespace CoreMod
 
             FrameDataHeader frame = BuildFrame();
             Modding.Logger.LogDebug(Format(frame));
+            TelemetryProvider.DispatchFrame(in frame, _entities, _entityCount);
+
+            if (frame.IsDone != EpisodeStatus.InProgress)
+            {
+                EndEpisode();
+            }
+
             _frameId++;
         }
 
@@ -57,7 +69,17 @@ namespace CoreMod
             _invulnRemaining = 0f;
             BindBoss(null);
 
-            Modding.Logger.LogDebug(Format(BuildEpisodeHeader()));
+            EpisodeFileHeader header = BuildEpisodeHeader();
+            Modding.Logger.LogDebug(Format(header));
+            TelemetryProvider.DispatchEpisodeStart(header);
+        }
+
+        private static void EndEpisode()
+        {
+            if (!_active) return;
+            _active = false;
+            TelemetryProvider.DispatchEpisodeEnd();
+            Modding.Logger.LogDebug("[Telemetry] EPISODE END");
         }
 
         private static EpisodeFileHeader BuildEpisodeHeader()
@@ -69,7 +91,7 @@ namespace CoreMod
             {
                 Magic = EpisodeFileHeader.ExpectedMagic,
                 BossId = boss != null ? boss.Id : Globals.UnknownBossId,
-                BossDifficulty = (byte)BossSceneController.Instance.BossLevel,
+                BossDifficulty = (byte)(BossSceneController.Instance != null ? BossSceneController.Instance.BossLevel : 0),
                 NailDamage = (byte)pd.nailDamage,
                 MaxHealth = (byte)pd.maxHealth,
                 Reserved = 0
@@ -114,7 +136,9 @@ namespace CoreMod
                 BindBoss(FindBoss());
             }
 
-            var frame = new FrameDataHeader { FrameId = _frameId, EntityCount = 0 };
+            CollectEntities();
+
+            var frame = new FrameDataHeader { FrameId = _frameId, EntityCount = (byte)_entityCount };
 
             int bossHp = _boss != null ? _boss.hp : 0;
             (bool bossHit, bool knightHit) = DetectHits(pd.health, bossHp, hc);
@@ -132,6 +156,143 @@ namespace CoreMod
             frame.IsDone = ReadStatus(pd.health, bossHp);
 
             return frame;
+        }
+
+        private static void CollectEntities()
+        {
+            _entityCount = 0;
+
+            DamageHero[] damageHitboxes = UnityEngine.Object.FindObjectsOfType<DamageHero>();
+            if (damageHitboxes == null) return;
+
+            Transform bossTransform = _boss != null ? _boss.transform : null;
+            Transform heroTransform = HeroController.instance != null ? HeroController.instance.transform : null;
+
+            for (int i = 0; i < damageHitboxes.Length && _entityCount < _entities.Length; i++)
+            {
+                DamageHero dh = damageHitboxes[i];
+                if (dh == null || !dh.gameObject.activeInHierarchy) continue;
+
+                if (bossTransform != null && (dh.transform == bossTransform || dh.transform.IsChildOf(bossTransform)))
+                    continue;
+
+                if (heroTransform != null && (dh.transform == heroTransform || dh.transform.IsChildOf(heroTransform)))
+                    continue;
+
+                Collider2D col = dh.GetComponent<Collider2D>() ?? dh.GetComponentInChildren<Collider2D>();
+                if (col == null) continue;
+
+
+                bool isActivelyDamaging = dh.isActiveAndEnabled && dh.damageDealt > 0 && col.enabled;
+
+                Rigidbody2D rb = dh.GetComponent<Rigidbody2D>();
+                HealthManager hm = dh.GetComponent<HealthManager>();
+                Bounds b = col.bounds;
+                Vector2 vel = rb != null ? rb.velocity : Vector2.zero;
+
+                string name = dh.gameObject.name.ToLowerInvariant();
+
+                if (hm != null && hm.hp > 0 && !name.Contains("barb"))
+                    continue;
+
+                EntityType kind = EntityType.Hazard;
+                if (name.Contains("shockwave") || name.Contains("wave"))
+                {
+                    kind = EntityType.Shockwave;
+                }
+                else if (name.Contains("needle") || name.Contains("projectile") || name.Contains("shot") || name.Contains("beam") || name.Contains("laser"))
+                {
+                    kind = EntityType.Projectile;
+                }
+
+                bool facingRight = vel.x > 0.05f || dh.transform.localScale.x > 0;
+                bool isInvulnerable = hm == null || hm.IsInvincible;
+                byte flags = (byte)(
+                    (facingRight ? 1 : 0) |
+                    (isInvulnerable ? 2 : 0) |
+                    (isActivelyDamaging ? 4 : 0)
+                );
+
+                float progress = GetTelegraphProgress(dh, isActivelyDamaging);
+
+                _entities[_entityCount++] = new EntityData
+                {
+                    X = b.center.x,
+                    Y = b.center.y,
+                    Vx = vel.x,
+                    Vy = vel.y,
+                    BoundWidth = b.extents.x,
+                    BoundHeight = b.extents.y,
+                    Rotation = dh.transform.eulerAngles.z,
+                    Progress = progress,
+                    EntityId = (short)dh.gameObject.GetInstanceID(),
+                    Hp = (short)(hm != null ? Mathf.Clamp(hm.hp, 0, short.MaxValue) : 0),
+                    Kind = kind,
+                    Flags = flags,
+                    Reserved = 0
+                };
+            }
+        }
+
+        private static float GetTelegraphProgress(DamageHero dh, bool isActivelyDamaging)
+        {
+            if (isActivelyDamaging)
+            {
+                return 0f;
+            }
+
+            PlayMakerFSM[] fsms = dh.GetComponents<PlayMakerFSM>();
+            if (fsms == null || fsms.Length == 0)
+            {
+                fsms = dh.GetComponentsInParent<PlayMakerFSM>();
+            }
+
+            if (fsms != null)
+            {
+                for (int i = 0; i < fsms.Length; i++)
+                {
+                    PlayMakerFSM fsm = fsms[i];
+                    if (fsm == null || fsm.Fsm == null) continue;
+
+                    var vars = fsm.FsmVariables;
+                    if (vars != null)
+                    {
+                        var timer = vars.FindFsmFloat("Timer") ?? vars.FindFsmFloat("Time Left") ?? vars.FindFsmFloat("Countdown");
+                        if (timer != null && timer.Value > 0f)
+                        {
+                            return timer.Value;
+                        }
+
+                        var antic = vars.FindFsmFloat("Antic Time") ?? vars.FindFsmFloat("Telegraph Time") ?? vars.FindFsmFloat("Aim Time") ?? vars.FindFsmFloat("Charge Time");
+                        if (antic != null && antic.Value > 0f)
+                        {
+                            return antic.Value;
+                        }
+
+                        var timeVar = vars.FindFsmFloat("Time");
+                        if (timeVar != null && timeVar.Value > 0f)
+                        {
+                            return timeVar.Value;
+                        }
+                    }
+                }
+            }
+
+            if (_bossFsm != null && _bossFsm.Fsm != null)
+            {
+                string bossState = _bossFsm.ActiveStateName?.ToLowerInvariant() ?? "";
+                if (bossState.Contains("aim") || bossState.Contains("laser antic") || bossState.Contains("beam antic"))
+                {
+                    var aimVar = _bossFsm.FsmVariables?.FindFsmFloat("Aim Time") ?? _bossFsm.FsmVariables?.FindFsmFloat("Antic Time");
+                    if (aimVar != null && aimVar.Value > 0f)
+                    {
+                        return Mathf.Max(0f, aimVar.Value - _fsmStateTime);
+                    }
+                    return _fsmStateTime;
+                }
+            }
+
+            return 0f;
         }
 
         private static void FillKnight(ref FrameDataHeader f, HeroController hc, PlayerData pd)

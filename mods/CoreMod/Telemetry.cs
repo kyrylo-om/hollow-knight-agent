@@ -97,7 +97,7 @@ namespace CoreMod
     // =========================================================================
     // 1. Episode File Header (Written ONCE at file start: 16 bytes)
     // =========================================================================
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct EpisodeFileHeader
     {
         // 8-byte field (Offset 0..7)
@@ -116,35 +116,37 @@ namespace CoreMod
     }
 
     // =========================================================================
-    // 2. Dynamic Entity Record (32 bytes)
+    // 2. Dynamic Entity Record (40 bytes)
     // =========================================================================
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct EntityData
     {
-        // 4-byte fields (24 bytes: Offsets 0..23)
+        // 4-byte fields (32 bytes: Offsets 0..31)
         public float X;                   // Arena coordinate X (4 bytes)
         public float Y;                   // Arena coordinate Y (4 bytes)
         public float Vx;                  // Velocity X (4 bytes)
         public float Vy;                  // Velocity Y (4 bytes)
         public float BoundWidth;          // Half-width (4 bytes)
         public float BoundHeight;         // Half-height (4 bytes)
+        public float Rotation;            // Z-rotation angle in degrees (0..360) (4 bytes)
+        public float Progress;            // Seconds remaining until damaging (0 if active/unknown) (4 bytes)
 
-        // 2-byte fields (4 bytes: Offsets 24..27)
+        // 2-byte fields (4 bytes: Offsets 32..35)
         public short EntityId;            // Unique instance ID (2 bytes)
         public short Hp;                  // Current HP for secondary boss / breakable entity (2 bytes)
 
-        // 1-byte fields (2 bytes: Offsets 28..29)
+        // 1-byte fields (2 bytes: Offsets 36..37)
         public EntityType Kind;           // EntityType enum (1 byte)
         public byte Flags;                // Bit 0: facing_right, Bit 1: invulnerable, Bit 2: damages_knight (1 byte)
 
-        // Trailing alignment (2 bytes: Offsets 30..31) -> rounds struct up to 32 bytes
-        public ushort Reserved;           // Trailing alignment to 32 bytes (2 bytes)
+        // Trailing alignment (2 bytes: Offsets 38..39) -> rounds struct up to 40 bytes
+        public ushort Reserved;           // Trailing alignment to 40 bytes (2 bytes)
     }
 
     // =========================================================================
     // 3. Fixed Frame Header (84 bytes)
     // =========================================================================
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct FrameDataHeader
     {
         // --- 4-byte fields (68 bytes: Offsets 0..67) ---
