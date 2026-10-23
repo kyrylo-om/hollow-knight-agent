@@ -52,9 +52,9 @@ namespace RecordMod
                 CloseCurrentSession();
 
                 string bossName = "Unknown";
-                if (header.BossId > 0 && header.BossId <= Globals.Bosses.Count)
+                if (header.BossId > 0 && header.BossId <= BossRegistry.Bosses.Count)
                 {
-                    bossName = Globals.Bosses[header.BossId - 1].Name.Replace(" ", "_");
+                    bossName = BossRegistry.Bosses[header.BossId - 1].Name.Replace(" ", "_");
                 }
 
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
