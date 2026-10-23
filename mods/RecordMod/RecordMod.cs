@@ -1,9 +1,10 @@
+using System.Collections.Generic;
 using CoreMod;
 using Modding;
 
 namespace RecordMod
 {
-    public class RecordMod : Mod, ITogglableMod
+    public class RecordMod : Mod, ITogglableMod, IMenuMod
     {
         public static RecordMod Instance { get; private set; }
         private FileTelemetryConsumer _consumer;
@@ -11,6 +12,18 @@ namespace RecordMod
         public RecordMod() : base("RecordMod") { }
 
         public override string GetVersion() => GetType().Assembly.GetName().Version.ToString();
+
+        public bool ToggleButtonInsideMenu => true;
+
+        public List<IMenuMod.MenuEntry> GetMenuData(IMenuMod.MenuEntry? toggleButtonEntry)
+        {
+            List<IMenuMod.MenuEntry> entries = new List<IMenuMod.MenuEntry>();
+            if (toggleButtonEntry.HasValue)
+            {
+                entries.Add(toggleButtonEntry.Value);
+            }
+            return entries;
+        }
 
         public override void Initialize()
         {

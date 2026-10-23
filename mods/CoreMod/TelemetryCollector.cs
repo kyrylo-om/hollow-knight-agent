@@ -56,7 +56,7 @@ namespace CoreMod
             }
 
             FrameDataHeader frame = BuildFrame();
-            Modding.Logger.LogDebug(Format(frame));
+            if (CoreMod.Settings.Logging) Modding.Logger.LogDebug(Format(frame));
             TelemetryProvider.DispatchFrame(in frame, _entities, _entityCount);
 
             if (frame.IsDone != EpisodeStatus.InProgress)
@@ -66,6 +66,15 @@ namespace CoreMod
             }
 
             _frameId++;
+        }
+
+        /// <summary>
+        /// Ends any active episode. Call when ticking stops (e.g. the mod is disabled).
+        /// </summary>
+        public static void Stop()
+        {
+            EndEpisode();
+            _episodeCompleted = false;
         }
 
         // =====================================================================
@@ -83,7 +92,7 @@ namespace CoreMod
             BindBoss(null);
 
             EpisodeFileHeader header = BuildEpisodeHeader();
-            Modding.Logger.LogDebug(Format(header));
+            if (CoreMod.Settings.Logging) Modding.Logger.LogDebug(Format(header));
             TelemetryProvider.DispatchEpisodeStart(header);
         }
 
@@ -92,7 +101,7 @@ namespace CoreMod
             if (!_active) return;
             _active = false;
             TelemetryProvider.DispatchEpisodeEnd();
-            Modding.Logger.LogDebug("[Telemetry] EPISODE END");
+            if (CoreMod.Settings.Logging) Modding.Logger.LogDebug("[Telemetry] EPISODE END");
         }
 
         private static EpisodeFileHeader BuildEpisodeHeader()
