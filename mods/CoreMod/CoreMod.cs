@@ -12,6 +12,13 @@ namespace CoreMod
         public override void Initialize()
         {
             ModHooks.HeroUpdateHook += OnHeroUpdate;
+            On.HeroController.FixedUpdate += OnHeroFixedUpdate;
+        }
+
+        private void OnHeroFixedUpdate(On.HeroController.orig_FixedUpdate orig, HeroController self)
+        {
+            orig(self);
+            TelemetryCollector.Tick();
         }
 
         private void OnHeroUpdate()
