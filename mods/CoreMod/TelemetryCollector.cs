@@ -207,8 +207,7 @@ namespace CoreMod
                 Collider2D col = dh.GetComponent<Collider2D>() ?? dh.GetComponentInChildren<Collider2D>();
                 if (col == null) continue;
 
-
-                bool isActivelyDamaging = dh.isActiveAndEnabled && dh.damageDealt > 0 && col.enabled;
+                bool isActivelyDamaging = dh.isActiveAndEnabled && dh.damageDealt > 0 && col.isActiveAndEnabled;
 
                 Rigidbody2D rb = dh.GetComponent<Rigidbody2D>();
                 HealthManager hm = dh.GetComponent<HealthManager>();
@@ -219,6 +218,24 @@ namespace CoreMod
 
                 if (hm != null && hm.hp > 0 && !name.Contains("barb"))
                     continue;
+
+                float progress = 0f;
+
+                if (!isActivelyDamaging)
+                {
+                    if (name.Contains("rock") || name.Contains("barrel") || name.Contains("rubble") ||
+                        name.Contains("debris") || name.Contains("block") || name.Contains("stone") ||
+                        name.Contains("ceiling"))
+                    {
+                        continue;
+                    }
+
+                    progress = GetTelegraphProgress(dh, isActivelyDamaging);
+                    if (progress <= 0f)
+                    {
+                        continue;
+                    }
+                }
 
                 EntityType kind = EntityType.Hazard;
                 if (name.Contains("shockwave") || name.Contains("wave"))
@@ -237,8 +254,6 @@ namespace CoreMod
                     (isInvulnerable ? 2 : 0) |
                     (isActivelyDamaging ? 4 : 0)
                 );
-
-                float progress = GetTelegraphProgress(dh, isActivelyDamaging);
 
                 _entities[_entityCount++] = new EntityData
                 {
@@ -279,6 +294,16 @@ namespace CoreMod
                     PlayMakerFSM fsm = fsms[i];
                     if (fsm == null || fsm.Fsm == null) continue;
 
+                    string state = fsm.ActiveStateName?.ToLowerInvariant() ?? "";
+                    if (state.Contains("land") || state.Contains("impact") || state.Contains("shatter") ||
+                        state.Contains("break") || state.Contains("burst") || state.Contains("die") ||
+                        state.Contains("dead") || state.Contains("destroy") || state.Contains("recycle") ||
+                        state.Contains("dissipate") || state.Contains("fade") || state.Contains("idle") ||
+                        state.Contains("dormant"))
+                    {
+                        continue;
+                    }
+
                     var vars = fsm.FsmVariables;
                     if (vars != null)
                     {
@@ -303,7 +328,9 @@ namespace CoreMod
                 }
             }
 
-            if (_bossFsm != null && _bossFsm.Fsm != null)
+            string objName = dh.gameObject.name.ToLowerInvariant();
+            if ((objName.Contains("beam") || objName.Contains("laser") || objName.Contains("shot")) &&
+                _bossFsm != null && _bossFsm.Fsm != null)
             {
                 string bossState = _bossFsm.ActiveStateName?.ToLowerInvariant() ?? "";
                 if (bossState.Contains("aim") || bossState.Contains("laser antic") || bossState.Contains("beam antic"))
@@ -313,7 +340,7 @@ namespace CoreMod
                     {
                         return Mathf.Max(0f, aimVar.Value - _fsmStateTime);
                     }
-                    return _fsmStateTime;
+                    return Mathf.Max(0.01f, _fsmStateTime);
                 }
             }
 
