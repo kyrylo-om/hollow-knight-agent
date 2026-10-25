@@ -124,6 +124,15 @@ FRAME_STRUCT = struct.Struct("<I 12f i 3f 3H 8B H")
 # Offsets 38..39: H (2B)
 ENTITY_STRUCT = struct.Struct("<8f 2h 2B H")
 
+# 4. ActionPacket: 8 bytes
+# Offsets 0..3: I (4B step_id)
+# Offset 4: B (1B action_held)
+# Offset 5: B (1B command_flags)
+# Offsets 6..7: H (2B reserved)
+ACTION_PACKET_STRUCT = struct.Struct("<I B B H")
+HANDSHAKE_MAGIC = 0x4B485244  # "HKRD" in ASCII little-endian (4 bytes)
+HANDSHAKE_STRUCT = struct.Struct("<I")
+
 assert HEADER_STRUCT.size == 16, (
     f"EpisodeFileHeader size must be 16, got {HEADER_STRUCT.size}"
 )
@@ -131,6 +140,27 @@ assert FRAME_STRUCT.size == 84, (
     f"FrameDataHeader size must be 84, got {FRAME_STRUCT.size}"
 )
 assert ENTITY_STRUCT.size == 40, f"EntityData size must be 40, got {ENTITY_STRUCT.size}"
+assert ACTION_PACKET_STRUCT.size == 8, f"ActionPacket size must be 8, got {ACTION_PACKET_STRUCT.size}"
+assert HANDSHAKE_STRUCT.size == 4, f"Handshake size must be 4, got {HANDSHAKE_STRUCT.size}"
+
+
+@dataclass
+class ActionPacket:
+    step_id: int
+    action_held: ActionButtons
+    command_flags: int = 0
+    reserved: int = 0
+
+    def pack(self) -> bytes:
+        return ACTION_PACKET_STRUCT.pack(
+            self.step_id, int(self.action_held), self.command_flags, self.reserved
+        )
+
+    @classmethod
+    def unpack(cls, buffer: bytes) -> ActionPacket:
+        step_id, action_held, cmd_flags, res = ACTION_PACKET_STRUCT.unpack(buffer[:8])
+        return cls(step_id, ActionButtons(action_held), cmd_flags, res)
+
 
 
 @dataclass
