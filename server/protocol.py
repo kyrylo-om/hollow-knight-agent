@@ -106,9 +106,11 @@ BOSS_NAMES = {
 
 EXPECTED_MAGIC = 0x3330415441444B48  # "HKDATA03" in ASCII little-endian
 
-# 1. EpisodeFileHeader: 16 bytes (<QBBBB i)
-# Magic (8), BossId (1), BossDifficulty (1), NailDamage (1), MaxHealth (1), Reserved (4)
-HEADER_STRUCT = struct.Struct("<QBBBB i")
+# 1. EpisodeFileHeader: 32 bytes (<Q 4f BBBB i)
+# Magic (8), ArenaMinX (4), ArenaMaxX (4), ArenaMinY (4), ArenaMaxY (4),
+# BossId (1), BossDifficulty (1), NailDamage (1), MaxHealth (1), Reserved (4)
+HEADER_STRUCT = struct.Struct("<Q 4f BBBB i")
+LEGACY_HEADER_STRUCT = struct.Struct("<QBBBB i")
 
 # 2. FrameDataHeader: 84 bytes
 # Offsets 0..67: I (4) + 8f (32) + 4f (16) + i (4) + 3f (12) = 68B
@@ -133,8 +135,11 @@ ACTION_PACKET_STRUCT = struct.Struct("<I B B H")
 HANDSHAKE_MAGIC = 0x4B485244  # "HKRD" in ASCII little-endian (4 bytes)
 HANDSHAKE_STRUCT = struct.Struct("<I")
 
-assert HEADER_STRUCT.size == 16, (
-    f"EpisodeFileHeader size must be 16, got {HEADER_STRUCT.size}"
+assert HEADER_STRUCT.size == 32, (
+    f"EpisodeFileHeader size must be 32, got {HEADER_STRUCT.size}"
+)
+assert LEGACY_HEADER_STRUCT.size == 16, (
+    f"Legacy EpisodeFileHeader size must be 16, got {LEGACY_HEADER_STRUCT.size}"
 )
 assert FRAME_STRUCT.size == 84, (
     f"FrameDataHeader size must be 84, got {FRAME_STRUCT.size}"
@@ -166,6 +171,10 @@ class ActionPacket:
 @dataclass
 class EpisodeHeader:
     magic: int
+    arena_min_x: float
+    arena_max_x: float
+    arena_min_y: float
+    arena_max_y: float
     boss_id: int
     boss_difficulty: int
     nail_damage: int
@@ -184,12 +193,63 @@ class EpisodeHeader:
             else str(self.boss_difficulty)
         )
 
+    def pack(self) -> bytes:
+        return HEADER_STRUCT.pack(
+            self.magic,
+            self.arena_min_x,
+            self.arena_max_x,
+            self.arena_min_y,
+            self.arena_max_y,
+            self.boss_id,
+            self.boss_difficulty,
+            self.nail_damage,
+            self.max_health,
+            self.reserved,
+        )
+
     @classmethod
     def unpack(cls, buffer: bytes) -> EpisodeHeader:
-        magic, boss_id, boss_diff, nail_dmg, max_hp, res = HEADER_STRUCT.unpack(
-            buffer[:16]
+        if len(buffer) < 32:
+            magic, boss_id, boss_diff, nail_dmg, max_hp, res = LEGACY_HEADER_STRUCT.unpack(
+                buffer[:16]
+            )
+            return cls(
+                magic=magic,
+                arena_min_x=14.0,
+                arena_max_x=46.0,
+                arena_min_y=26.2,
+                arena_max_y=42.0,
+                boss_id=boss_id,
+                boss_difficulty=boss_diff,
+                nail_damage=nail_dmg,
+                max_health=max_hp,
+                reserved=res,
+            )
+
+        (
+            magic,
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+            boss_id,
+            boss_diff,
+            nail_dmg,
+            max_hp,
+            res,
+        ) = HEADER_STRUCT.unpack(buffer[:32])
+        return cls(
+            magic,
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+            boss_id,
+            boss_diff,
+            nail_dmg,
+            max_hp,
+            res,
         )
-        return cls(magic, boss_id, boss_diff, nail_dmg, max_hp, res)
 
 
 @dataclass
@@ -346,14 +406,31 @@ class EpisodeReader:
     """Reads binary episode recordings saved by RecordMod."""
 
     @staticmethod
+    def _read_header_and_offset(f) -> tuple[EpisodeHeader, int]:
+        """Reads EpisodeHeader and detects 32-byte vs legacy 16-byte header."""
+        header_bytes = f.read(32)
+        if len(header_bytes) < 16:
+            raise ValueError(f"File too small for header: {len(header_bytes)} bytes")
+
+        is_legacy = False
+        if len(header_bytes) >= 28:
+            fid, _kx, ky = struct.unpack("<I ff", header_bytes[16:28])
+            if fid == 0 and 1.0 <= ky <= 150.0:
+                is_legacy = True
+
+        if is_legacy or len(header_bytes) < 32:
+            header = EpisodeHeader.unpack(header_bytes[:16])
+            f.seek(16)
+            return header, 16
+
+        header = EpisodeHeader.unpack(header_bytes[:32])
+        f.seek(32)
+        return header, 32
+
+    @staticmethod
     def read_file(filepath: str) -> tuple[EpisodeHeader, list[Frame]]:
         with open(filepath, "rb") as f:
-            header_bytes = f.read(16)
-            if len(header_bytes) < 16:
-                raise ValueError(
-                    f"File too small for header: {len(header_bytes)} bytes"
-                )
-            header = EpisodeHeader.unpack(header_bytes)
+            header, _ = EpisodeReader._read_header_and_offset(f)
 
             frames: list[Frame] = []
             while True:
@@ -382,10 +459,7 @@ class EpisodeReader:
     def iterate_file(filepath: str) -> Iterator[tuple[EpisodeHeader, Frame]]:
         """Memory-efficient generator yielding one frame at a time."""
         with open(filepath, "rb") as f:
-            header_bytes = f.read(16)
-            if len(header_bytes) < 16:
-                raise ValueError("File too small for header")
-            header = EpisodeHeader.unpack(header_bytes)
+            header, _ = EpisodeReader._read_header_and_offset(f)
 
             while True:
                 frame_bytes = f.read(84)

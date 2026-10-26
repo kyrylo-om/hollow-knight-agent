@@ -52,6 +52,11 @@ namespace CoreMod
 
             if (!_active)
             {
+                // Wait until the boss scene transition finishes and the hero is placed in the arena
+                if (!BossSceneController.Instance.HasTransitionedIn && HeroController.instance.transform.position.x >= 150f)
+                {
+                    return;
+                }
                 BeginEpisode();
             }
 
@@ -107,16 +112,95 @@ namespace CoreMod
         private static EpisodeFileHeader BuildEpisodeHeader()
         {
             PlayerData pd = PlayerData.instance;
+            GetArenaBounds(out float minX, out float maxX, out float minY, out float maxY);
 
             return new EpisodeFileHeader
             {
                 Magic = EpisodeFileHeader.ExpectedMagic,
+                ArenaMinX = minX,
+                ArenaMaxX = maxX,
+                ArenaMinY = minY,
+                ArenaMaxY = maxY,
                 BossId = _bossInfo != null ? _bossInfo.Id : BossRegistry.UnknownBossId,
                 BossDifficulty = (byte)BossSceneController.Instance.BossLevel,
                 NailDamage = (byte)pd.nailDamage,
                 MaxHealth = (byte)pd.maxHealth,
                 Reserved = 0
             };
+        }
+
+        public static void GetArenaBounds(out float minX, out float maxX, out float minY, out float maxY)
+        {
+            minX = 14.0f;
+            maxX = 46.0f;
+            minY = 26.2f;
+            maxY = 42.0f;
+
+            Vector2 origin = Vector2.zero;
+            bool hasOrigin = false;
+
+            // 1. Prefer heroSpawn from BossSceneController (guaranteed to be inside the arena)
+            if (BossSceneController.Instance != null && BossSceneController.Instance.heroSpawn != null)
+            {
+                origin = BossSceneController.Instance.heroSpawn.position;
+                hasOrigin = true;
+            }
+            // 2. Or hero position if already inside the arena (< 150.0)
+            else if (HeroController.instance != null && HeroController.instance.transform.position.x < 150f)
+            {
+                origin = HeroController.instance.transform.position;
+                hasOrigin = true;
+            }
+            // 3. Or boss position
+            else
+            {
+                HealthManager boss = FindBoss();
+                if (boss != null)
+                {
+                    origin = boss.transform.position;
+                    hasOrigin = true;
+                }
+            }
+
+            if (hasOrigin)
+            {
+                // Lift origin slightly into the air to ensure downward ray does not start inside the floor collider
+                origin.y += 1.5f;
+
+                int terrainMask = 1 << (int)GlobalEnums.PhysLayers.TERRAIN;
+
+                RaycastHit2D hitL = Physics2D.Raycast(origin, Vector2.left, 500f, terrainMask);
+                RaycastHit2D hitR = Physics2D.Raycast(origin, Vector2.right, 500f, terrainMask);
+                RaycastHit2D hitD = Physics2D.Raycast(origin, Vector2.down, 500f, terrainMask);
+                RaycastHit2D hitU = Physics2D.Raycast(origin, Vector2.up, 500f, terrainMask);
+
+                if (hitL.collider != null && hitR.collider != null && hitD.collider != null)
+                {
+                    minX = hitL.point.x;
+                    maxX = hitR.point.x;
+                    minY = hitD.point.y;
+                    maxY = hitU.collider != null ? hitU.point.y : (minY + 20f);
+                    return;
+                }
+            }
+
+            // Fallback: Check CameraLockArea trigger box
+            CameraLockArea lockArea = UnityEngine.Object.FindObjectOfType<CameraLockArea>();
+            if (lockArea != null)
+            {
+                Collider2D col = lockArea.GetComponent<Collider2D>();
+                if (col != null)
+                {
+                    Bounds b = col.bounds;
+                    if (b.size.x > 2f && b.size.y > 2f)
+                    {
+                        minX = b.min.x;
+                        maxX = b.max.x;
+                        minY = b.min.y;
+                        maxY = b.max.y;
+                    }
+                }
+            }
         }
 
         private static HealthManager FindBoss()
@@ -255,15 +339,38 @@ namespace CoreMod
                     (isActivelyDamaging ? 4 : 0)
                 );
 
+                float halfWidth;
+                float halfHeight;
+                float rotation = col.transform.eulerAngles.z;
+
+                if (col is BoxCollider2D box)
+                {
+                    Vector3 lossy = box.transform.lossyScale;
+                    halfWidth = Mathf.Abs(box.size.x * lossy.x) * 0.5f;
+                    halfHeight = Mathf.Abs(box.size.y * lossy.y) * 0.5f;
+                }
+                else if (col is CircleCollider2D circle)
+                {
+                    Vector3 lossy = circle.transform.lossyScale;
+                    halfWidth = circle.radius * Mathf.Max(Mathf.Abs(lossy.x), Mathf.Abs(lossy.y));
+                    halfHeight = halfWidth;
+                    rotation = 0f;
+                }
+                else
+                {
+                    halfWidth = b.extents.x;
+                    halfHeight = b.extents.y;
+                }
+
                 _entities[_entityCount++] = new EntityData
                 {
                     X = b.center.x,
                     Y = b.center.y,
                     Vx = vel.x,
                     Vy = vel.y,
-                    BoundWidth = b.extents.x,
-                    BoundHeight = b.extents.y,
-                    Rotation = dh.transform.eulerAngles.z,
+                    BoundWidth = halfWidth,
+                    BoundHeight = halfHeight,
+                    Rotation = rotation,
                     Progress = progress,
                     EntityId = (short)dh.gameObject.GetInstanceID(),
                     Hp = (short)(hm != null ? Mathf.Clamp(hm.hp, 0, short.MaxValue) : 0),
@@ -521,7 +628,8 @@ namespace CoreMod
 
         private static string Format(EpisodeFileHeader h) =>
             $"[Telemetry] EPISODE magic=0x{h.Magic:X16} boss={h.BossId} diff={h.BossDifficulty} " +
-            $"nail={h.NailDamage} maxHp={h.MaxHealth}";
+            $"nail={h.NailDamage} maxHp={h.MaxHealth} " +
+            $"arena=({h.ArenaMinX:F2}..{h.ArenaMaxX:F2}, {h.ArenaMinY:F2}..{h.ArenaMaxY:F2})";
 
         private static string Format(FrameDataHeader f) =>
             $"[Telemetry] F={f.FrameId} status={f.IsDone} " +

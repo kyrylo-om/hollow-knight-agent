@@ -99,8 +99,12 @@ class ArenaCanvas(QWidget):
         self.update()
 
     def reset_camera(self):
-        self.cam_center_x = 30.0
-        self.cam_center_y = 33.0
+        if self.header and (self.header.arena_max_x > self.header.arena_min_x):
+            self.cam_center_x = (self.header.arena_min_x + self.header.arena_max_x) / 2.0
+            self.cam_center_y = (self.header.arena_min_y + self.header.arena_max_y) / 2.0
+        else:
+            self.cam_center_x = 30.0
+            self.cam_center_y = 33.0
         self.zoom = 24.0
         self.update()
 
@@ -196,38 +200,65 @@ class ArenaCanvas(QWidget):
             painter.end()
 
     def _draw_arena_grid(self, p: QPainter):
-        """Draws arena floor at Y=26.2, side walls, and background distance reference lines."""
-        # Arena floor is at Y ~ 26.2
-        floor_y = 26.2
-        _, s_floor_y = self.world_to_screen(0, floor_y)
+        """Draws arena floor, walls, ceiling, and reference lines using episode header bounds."""
+        if self.header and (self.header.arena_max_x > self.header.arena_min_x):
+            min_x = self.header.arena_min_x
+            max_x = self.header.arena_max_x
+            min_y = self.header.arena_min_y
+            max_y = self.header.arena_max_y
+        else:
+            min_x = 14.0
+            max_x = 46.0
+            min_y = 26.2
+            max_y = 42.0
 
-        # Ground block
+        _, s_floor_y = self.world_to_screen(0, min_y)
+        _, s_ceil_y = self.world_to_screen(0, max_y)
+        s_left_x, _ = self.world_to_screen(min_x, 0)
+        s_right_x, _ = self.world_to_screen(max_x, 0)
+
+        # 1. Ground block below floor
         p.setPen(Qt.NoPen)
         p.setBrush(QColor("#1e222d"))
         p.drawRect(0, int(s_floor_y), self.width(), int(self.height() - s_floor_y))
 
-        # Solid floor edge
-        p.setPen(QPen(QColor("#38bdf8"), 2.0))
-        p.drawLine(0, int(s_floor_y), self.width(), int(s_floor_y))
+        # 2. Outside arena side slabs (shaded dark)
+        p.setBrush(QColor("#0d1017"))
+        if s_left_x > 0:
+            p.drawRect(0, 0, int(s_left_x), int(s_floor_y))
+        if s_right_x < self.width():
+            p.drawRect(int(s_right_x), 0, int(self.width() - s_right_x), int(s_floor_y))
 
-        # Grid lines every 5 world units
+        # 3. Arena interior subtle grid lines every 5 world units
         p.setPen(QPen(QColor("#1e293b"), 1.0, Qt.DashLine))
-        start_x, end_x = 10, 50
-        for x in range(start_x, end_x + 1, 5):
-            sx, _ = self.world_to_screen(x, 0)
-            p.drawLine(int(sx), 0, int(sx), int(s_floor_y))
+        start_grid_x = int((min_x // 5) * 5)
+        end_grid_x = int((max_x // 5 + 1) * 5)
+        for gx in range(start_grid_x, end_grid_x + 1, 5):
+            if min_x <= gx <= max_x:
+                sx, _ = self.world_to_screen(gx, 0)
+                p.drawLine(int(sx), int(s_ceil_y), int(sx), int(s_floor_y))
 
-        # Ceiling reference (Y=42)
-        _, s_ceil_y = self.world_to_screen(0, 42.0)
-        p.setPen(QPen(QColor("#334155"), 1.0, Qt.DotLine))
-        p.drawLine(0, int(s_ceil_y), self.width(), int(s_ceil_y))
+        # 4. Arena boundaries
+        # Solid floor edge
+        p.setPen(QPen(QColor("#38bdf8"), 2.5))
+        p.drawLine(int(s_left_x), int(s_floor_y), int(s_right_x), int(s_floor_y))
 
-        # Left wall (X=14) and Right wall (X=46)
-        s_left_x, _ = self.world_to_screen(14.0, 0)
-        s_right_x, _ = self.world_to_screen(46.0, 0)
-        p.setPen(QPen(QColor("#334155"), 1.5, Qt.DashLine))
-        p.drawLine(int(s_left_x), 0, int(s_left_x), int(s_floor_y))
-        p.drawLine(int(s_right_x), 0, int(s_right_x), int(s_floor_y))
+        # Ceiling reference
+        p.setPen(QPen(QColor("#475569"), 1.5, Qt.DotLine))
+        p.drawLine(int(s_left_x), int(s_ceil_y), int(s_right_x), int(s_ceil_y))
+
+        # Left and Right walls
+        p.setPen(QPen(QColor("#38bdf8"), 2.0, Qt.SolidLine))
+        p.drawLine(int(s_left_x), int(s_ceil_y), int(s_left_x), int(s_floor_y))
+        p.drawLine(int(s_right_x), int(s_ceil_y), int(s_right_x), int(s_floor_y))
+
+        # Boundary coordinate labels (small, clean text)
+        p.setPen(QColor("#64748b"))
+        p.setFont(QFont("Arial", 9))
+        p.drawText(int(s_left_x) + 4, int(s_floor_y) - 6, f"X={min_x:.1f}")
+        p.drawText(int(s_right_x) - 46, int(s_floor_y) - 6, f"X={max_x:.1f}")
+        p.drawText(int(s_left_x) + 4, int(s_ceil_y) + 14, f"Y={max_y:.1f}")
+        p.drawText(int((s_left_x + s_right_x) / 2) - 24, int(s_floor_y) + 16, f"Floor Y={min_y:.1f}")
 
     def _draw_knight(self, p: QPainter, h):
         """Renders the player Knight with direction, combat status, and velocity vector."""
@@ -337,9 +368,33 @@ class ArenaCanvas(QWidget):
         """Renders dynamic entities (falling rocks, projectiles, shockwaves, telegraph warnings)."""
         sx, sy = self.world_to_screen(ent.x, ent.y)
 
-        # Width and height (2 * extents)
-        ew = (ent.bound_width * 2.0 if ent.bound_width > 0 else 1.2) * self.zoom
-        eh = (ent.bound_height * 2.0 if ent.bound_height > 0 else 1.2) * self.zoom
+        bw = ent.bound_width if ent.bound_width > 0 else 0.6
+        bh = ent.bound_height if ent.bound_height > 0 else 0.6
+
+        # When entities are rotated, bound_width and bound_height in telemetry are world AABB extents.
+        # Recover the local unrotated dimensions (length along propagation, thickness perpendicular)
+        # before applying local coordinate rotation.
+        rot_deg = ent.rotation % 360.0
+        if rot_deg != 0.0 and (abs(bw - bh) > 0.05 or ent.kind == EntityType.PROJECTILE):
+            theta = math.radians(rot_deg)
+            c = abs(math.cos(theta))
+            s = abs(math.sin(theta))
+            det = c * c - s * s
+            if abs(det) > 0.08:
+                lx = abs((c * bw - s * bh) / det)
+                ly = abs((-s * bw + c * bh) / det)
+                # For projectiles and beams, local X is the propagation length along rotation
+                if ent.kind == EntityType.PROJECTILE and lx < ly:
+                    lx, ly = ly, lx
+            else:
+                lx = math.hypot(bw, bh)
+                ly = min(bw, bh)
+        else:
+            lx, ly = bw, bh
+
+        # Width and height (2 * extents) in screen pixels
+        ew = lx * 2.0 * self.zoom
+        eh = ly * 2.0 * self.zoom
 
         damages_knight = bool(ent.flags & EntityFlags.DAMAGES_KNIGHT)
         is_warn = not damages_knight
@@ -355,15 +410,25 @@ class ArenaCanvas(QWidget):
                 p.setBrush(QColor(6, 182, 212, 100))
                 p.drawRoundedRect(QRectF(-ew / 2, -eh / 2, ew, eh), 4, 4)
             elif ent.kind == EntityType.PROJECTILE:
-                p.setPen(QPen(QColor("#facc15"), 2.0))
-                p.setBrush(QColor(250, 204, 21, 190))
-                p.drawPolygon(
-                    [
-                        QPointF(-ew / 2, -eh / 2),
-                        QPointF(ew / 2, 0),
-                        QPointF(-ew / 2, eh / 2),
-                    ]
-                )
+                # Laser beam / Projectile: render as an oriented glowing rectangular beam
+                p.setPen(QPen(QColor("#fb7185"), 2.0))
+                p.setBrush(QColor(244, 63, 94, 200))
+                rect = QRectF(-ew / 2, -eh / 2, ew, eh)
+                r = min(3.0, min(ew, eh) / 2)
+                p.drawRoundedRect(rect, r, r)
+
+                # Inner bright white glowing energy core
+                if ew > 3 and eh > 3:
+                    p.setPen(Qt.NoPen)
+                    p.setBrush(QColor(255, 255, 255, 220))
+                    core_w = max(1.0, ew * 0.6 if ew < eh else ew - 4)
+                    core_h = max(1.0, eh * 0.6 if eh < ew else eh - 4)
+                    core_r = min(2.0, min(core_w, core_h) / 2)
+                    p.drawRoundedRect(
+                        QRectF(-core_w / 2, -core_h / 2, core_w, core_h),
+                        core_r,
+                        core_r,
+                    )
             else:
                 # Hazard / Falling Rock
                 p.setPen(QPen(QColor("#ea580c"), 2.0))
@@ -639,6 +704,10 @@ class TelemetrySidebar(QScrollArea):
         self.lbl_ep_masks.setProperty("class", "FieldValue")
         self._add_form_row(form, "Max Masks:", self.lbl_ep_masks)
 
+        self.lbl_ep_arena = QLabel("-")
+        self.lbl_ep_arena.setProperty("class", "FieldValue")
+        self._add_form_row(form, "Arena Bounds:", self.lbl_ep_arena)
+
         layout.addLayout(form)
         self.main_layout.addWidget(card)
 
@@ -817,6 +886,10 @@ class TelemetrySidebar(QScrollArea):
         )
         self.lbl_ep_nail.setText(str(header.nail_damage))
         self.lbl_ep_masks.setText(str(header.max_health))
+        self.lbl_ep_arena.setText(
+            f"X: [{header.arena_min_x:.1f}, {header.arena_max_x:.1f}]  "
+            f"Y: [{header.arena_min_y:.1f}, {header.arena_max_y:.1f}]"
+        )
 
     def update_frame(self, frame: Frame):
         h = frame.header
@@ -1043,11 +1116,43 @@ class TelemetryVisualizerWindow(QMainWindow):
             print(f"Error loading file: {e}", file=sys.stderr)
             return
 
+        # Sanity check: ensure header arena bounds match actual gameplay coordinates
+        # (Guards against offset fallback defaults, e.g. floor at Y=26.2 when boss/knight are at Y=10)
+        if self.frames and self.header:
+            ground_ys = [
+                f.header.knight_y
+                for f in self.frames
+                if (f.header.knight_flags & KnightFlags.ON_GROUND) and f.header.knight_x < 150.0
+            ]
+            valid_kx = [f.header.knight_x for f in self.frames if f.header.knight_x < 150.0]
+            valid_bx = [f.header.boss_x for f in self.frames if 0.0 < f.header.boss_x < 150.0]
+
+            if ground_ys:
+                actual_floor_y = min(ground_ys)
+                if (
+                    self.header.arena_min_y > actual_floor_y + 3.0
+                    or self.header.arena_min_y < actual_floor_y - 10.0
+                ):
+                    delta_y = self.header.arena_max_y - self.header.arena_min_y
+                    self.header.arena_min_y = round(actual_floor_y, 2)
+                    self.header.arena_max_y = round(actual_floor_y + max(16.0, delta_y), 2)
+
+            if valid_kx or valid_bx:
+                all_x = valid_kx + valid_bx
+                min_combat_x = min(all_x)
+                max_combat_x = max(all_x)
+                if min_combat_x < self.header.arena_min_x:
+                    self.header.arena_min_x = round(min_combat_x - 4.0, 1)
+                if max_combat_x > self.header.arena_max_x:
+                    self.header.arena_max_x = round(max_combat_x + 4.0, 1)
+
         filename = os.path.basename(filepath)
         self.setWindowTitle(f"Hollow Knight Telemetry Visualizer - {filename}")
 
         self.controls.slider.setRange(0, max(0, len(self.frames) - 1))
         self.sidebar.update_header(self.header)
+        self.canvas.header = self.header
+        self.canvas.reset_camera()
 
         self.current_idx = 0
         self.set_frame_index(0)
