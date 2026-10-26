@@ -12,6 +12,7 @@ Features:
 
 import math
 import os
+import signal
 import sys
 
 from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer
@@ -371,25 +372,17 @@ class ArenaCanvas(QWidget):
         bw = ent.bound_width if ent.bound_width > 0 else 0.6
         bh = ent.bound_height if ent.bound_height > 0 else 0.6
 
-        # When entities are rotated, bound_width and bound_height in telemetry are world AABB extents.
-        # Recover the local unrotated dimensions (length along propagation, thickness perpendicular)
-        # before applying local coordinate rotation.
-        rot_deg = ent.rotation % 360.0
-        if rot_deg != 0.0 and (abs(bw - bh) > 0.05 or ent.kind == EntityType.PROJECTILE):
-            theta = math.radians(rot_deg)
-            c = abs(math.cos(theta))
-            s = abs(math.sin(theta))
-            det = c * c - s * s
-            if abs(det) > 0.08:
-                lx = abs((c * bw - s * bh) / det)
-                ly = abs((-s * bw + c * bh) / det)
-                # For projectiles and beams, local X is the propagation length along rotation
-                if ent.kind == EntityType.PROJECTILE and lx < ly:
-                    lx, ly = ly, lx
-            else:
-                lx = math.hypot(bw, bh)
-                ly = min(bw, bh)
+        # For projectiles (laser beams, needle projectiles):
+        # The primary propagation axis along ent.rotation is the beam length,
+        # and the perpendicular axis is the beam thickness.
+        # This holds true for both new recordings (local collider extents) and
+        # legacy recordings (where world AABB extents were saved).
+        if ent.kind == EntityType.PROJECTILE:
+            lx = max(bw, bh)
+            ly = min(bw, bh)
         else:
+            # For general colliders (boxes, hazards, shockwaves), bw and bh
+            # are local half-extents along local X and local Y.
             lx, ly = bw, bh
 
         # Width and height (2 * extents) in screen pixels
@@ -411,18 +404,18 @@ class ArenaCanvas(QWidget):
                 p.drawRoundedRect(QRectF(-ew / 2, -eh / 2, ew, eh), 4, 4)
             elif ent.kind == EntityType.PROJECTILE:
                 # Laser beam / Projectile: render as an oriented glowing rectangular beam
-                p.setPen(QPen(QColor("#fb7185"), 2.0))
+                p.setPen(QPen(QColor("#fb7185"), 1.0))
                 p.setBrush(QColor(244, 63, 94, 200))
                 rect = QRectF(-ew / 2, -eh / 2, ew, eh)
                 r = min(3.0, min(ew, eh) / 2)
                 p.drawRoundedRect(rect, r, r)
 
                 # Inner bright white glowing energy core
-                if ew > 3 and eh > 3:
+                if ew > 2 and eh > 2:
                     p.setPen(Qt.NoPen)
                     p.setBrush(QColor(255, 255, 255, 220))
-                    core_w = max(1.0, ew * 0.6 if ew < eh else ew - 4)
-                    core_h = max(1.0, eh * 0.6 if eh < ew else eh - 4)
+                    core_w = max(1.0, ew - 4 if ew > 8 else ew * 0.8)
+                    core_h = max(1.0, eh * 0.5)
                     core_r = min(2.0, min(core_w, core_h) / 2)
                     p.drawRoundedRect(
                         QRectF(-core_w / 2, -core_h / 2, core_w, core_h),
@@ -438,9 +431,16 @@ class ArenaCanvas(QWidget):
                 p.drawLine(int(ew / 2), int(-eh / 2), int(-ew / 2), int(eh / 2))
         else:
             # Warning telegraph (non-damaging countdown)
-            p.setPen(QPen(QColor("#eab308"), 2.0, Qt.DashLine))
-            p.setBrush(QColor(234, 179, 8, 50))
-            p.drawRect(QRectF(-ew / 2, -eh / 2, ew, eh))
+            if ent.kind == EntityType.PROJECTILE:
+                # For projectile/beam telegraphs, telemetry position is the emitter origin;
+                # project forward along local X from 0
+                p.setPen(QPen(QColor("#facc15"), 1.5, Qt.DashLine))
+                p.setBrush(QColor(250, 204, 21, 50))
+                p.drawRoundedRect(QRectF(0, -eh / 2, ew, eh), 2, 2)
+            else:
+                p.setPen(QPen(QColor("#eab308"), 2.0, Qt.DashLine))
+                p.setBrush(QColor(234, 179, 8, 50))
+                p.drawRect(QRectF(-ew / 2, -eh / 2, ew, eh))
 
         p.restore()
 
@@ -451,7 +451,8 @@ class ArenaCanvas(QWidget):
         p.setFont(QFont("Arial", 8))
         if is_warn and ent.progress > 0:
             p.setPen(QColor("#fef08a"))
-            p.drawText(int(sx - 20), int(sy - eh / 2 - 4), f"WARN {ent.progress:.2f}s")
+            label_y = int(sy - 8 if ent.kind == EntityType.PROJECTILE else sy - eh / 2 - 4)
+            p.drawText(int(sx - 20), label_y, f"WARN {ent.progress:.2f}s")
         else:
             p.setPen(QColor("#cbd5e1"))
             p.drawText(int(sx - 15), int(sy - eh / 2 - 4), f"#{ent.entity_id}")
@@ -1229,55 +1230,62 @@ class TelemetryVisualizerWindow(QMainWindow):
     # Global Keyboard Shortcuts & Event Filter
 
     def eventFilter(self, watched, event):
-        if event.type() == QEvent.KeyPress:
+        try:
+            if event.type() == QEvent.KeyPress:
+                key = event.key()
+                modifiers = event.modifiers()
+
+                if key == Qt.Key_Space:
+                    self.toggle_play()
+                    return True
+                elif key == Qt.Key_Left:
+                    step = -10 if (modifiers & Qt.ShiftModifier) else -1
+                    self.step_frame(step)
+                    return True
+                elif key == Qt.Key_Right:
+                    step = 10 if (modifiers & Qt.ShiftModifier) else 1
+                    self.step_frame(step)
+                    return True
+                elif key == Qt.Key_Home:
+                    self.set_frame_index(0)
+                    return True
+                elif key == Qt.Key_End:
+                    if self.frames:
+                        self.set_frame_index(len(self.frames) - 1)
+                    return True
+                elif key == Qt.Key_R:
+                    self.canvas.reset_camera()
+                    return True
+
+            return super().eventFilter(watched, event)
+        except KeyboardInterrupt:
+            QApplication.quit()
+            return True
+
+    def keyPressEvent(self, event: QKeyEvent):
+        try:
             key = event.key()
             modifiers = event.modifiers()
 
             if key == Qt.Key_Space:
                 self.toggle_play()
-                return True
             elif key == Qt.Key_Left:
                 step = -10 if (modifiers & Qt.ShiftModifier) else -1
                 self.step_frame(step)
-                return True
             elif key == Qt.Key_Right:
                 step = 10 if (modifiers & Qt.ShiftModifier) else 1
                 self.step_frame(step)
-                return True
             elif key == Qt.Key_Home:
                 self.set_frame_index(0)
-                return True
             elif key == Qt.Key_End:
                 if self.frames:
                     self.set_frame_index(len(self.frames) - 1)
-                return True
             elif key == Qt.Key_R:
                 self.canvas.reset_camera()
-                return True
-
-        return super().eventFilter(watched, event)
-
-    def keyPressEvent(self, event: QKeyEvent):
-        key = event.key()
-        modifiers = event.modifiers()
-
-        if key == Qt.Key_Space:
-            self.toggle_play()
-        elif key == Qt.Key_Left:
-            step = -10 if (modifiers & Qt.ShiftModifier) else -1
-            self.step_frame(step)
-        elif key == Qt.Key_Right:
-            step = 10 if (modifiers & Qt.ShiftModifier) else 1
-            self.step_frame(step)
-        elif key == Qt.Key_Home:
-            self.set_frame_index(0)
-        elif key == Qt.Key_End:
-            if self.frames:
-                self.set_frame_index(len(self.frames) - 1)
-        elif key == Qt.Key_R:
-            self.canvas.reset_camera()
-        else:
-            super().keyPressEvent(event)
+            else:
+                super().keyPressEvent(event)
+        except KeyboardInterrupt:
+            QApplication.quit()
 
 
 # 5. CLI Entrypoint
@@ -1292,11 +1300,32 @@ def main():
     parser.add_argument(
         "filepath", nargs="?", default=None, help="Path to .bin episode recording"
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
+
+    # Intercept unhandled KeyboardInterrupts across PySide6 C++ callbacks
+    def excepthook(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            QApplication.quit()
+            return
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+    sys.excepthook = excepthook
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setFont(QFont("Helvetica Neue", 10))
+
+    # Graceful SIGINT (Ctrl+C) handling
+    def sigint_handler(signum, frame):
+        QApplication.quit()
+
+    signal.signal(signal.SIGINT, sigint_handler)
+
+    # Periodic timer allows the Python interpreter to run and catch OS signals
+    # while Qt's native C++ event loop is active
+    sig_timer = QTimer()
+    sig_timer.timeout.connect(lambda: None)
+    sig_timer.start(100)
 
     # Dark Theme Palette
     app.setStyleSheet("""
@@ -1307,7 +1336,11 @@ def main():
     window = TelemetryVisualizerWindow(filepath=args.filepath)
     window.show()
 
-    sys.exit(app.exec())
+    try:
+        ret = app.exec()
+    except KeyboardInterrupt:
+        ret = 0
+    sys.exit(ret)
 
 
 if __name__ == "__main__":
