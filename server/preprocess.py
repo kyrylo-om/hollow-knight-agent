@@ -165,7 +165,7 @@ def _observe(
         _bit(kf, KnightFlags.CAN_DASH),
         _bit(kf, KnightFlags.CAN_DOUBLE_JUMP),
         _bit(kf, KnightFlags.IS_RECOILING),
-        (knight_right & (dx >= 0)) | (~knight_right & (dx <= 0)),
+        np.where(knight_right, dx >= 0, dx <= 0),
     ]
     boss = [
         dx,
@@ -176,7 +176,7 @@ def _observe(
         cols["boss_vy"],
         np.minimum(cols["fsm_state_time"], fsm_time_clip),
         _bit(ff, FrameFlags.BOSS_INVULNERABLE),
-        (boss_right & (dx <= 0)) | (~boss_right & (dx >= 0)),
+        np.where(boss_right, dx <= 0, dx >= 0),
     ]
     critic_extra = [
         cols["knight_hp"] / header.max_health,
@@ -286,12 +286,10 @@ class Preprocessor:
 
         # 4. Mirror-augment train
         if cfg.mirror_augment:
-            mirrored = []
-            for part in train_parts:
-                m = _mirror(part)
-                m["episode_id"] = part["episode_id"] + len(episodes)
-                mirrored.append(m)
-            train_parts += mirrored
+            train_parts += [
+                {**_mirror(part), "episode_id": part["episode_id"] + len(episodes)}
+                for part in train_parts
+            ]
 
         train, val = _concat(train_parts), _concat(val_parts)
 

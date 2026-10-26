@@ -13,60 +13,20 @@ import os
 import sys
 
 from protocol import (
-    EXPECTED_MAGIC,
-    ActionButtons,
+    FRAME_DT,
     EntityFlags,
     EpisodeHeader,
     EpisodeReader,
     EpisodeStatus,
     Frame,
-    FrameFlags,
-    KnightFlags,
+    flag_names,
 )
-
-
-def format_buttons(b: ActionButtons) -> str:
-    if b == ActionButtons.NONE:
-        return "None"
-    names = [
-        flag.name
-        for flag in ActionButtons
-        if flag in b and flag.name is not None and flag != ActionButtons.NONE
-    ]
-    return " | ".join(names) if names else "None"
-
-
-def format_knight_flags(f: KnightFlags) -> str:
-    if f == KnightFlags.NONE:
-        return "None"
-    names = [
-        flag.name
-        for flag in KnightFlags
-        if flag in f and flag.name is not None and flag != KnightFlags.NONE
-    ]
-    return " | ".join(names) if names else "None"
-
-
-def format_frame_flags(f: FrameFlags) -> str:
-    if f == FrameFlags.NONE:
-        return "None"
-    names = [
-        flag.name
-        for flag in FrameFlags
-        if flag in f and flag.name is not None and flag != FrameFlags.NONE
-    ]
-    return " | ".join(names) if names else "None"
 
 
 def print_episode_summary(header: EpisodeHeader, frames: list[Frame], filepath: str):
     file_size = os.path.getsize(filepath)
     num_frames = len(frames)
-    duration_sec = num_frames * 0.02
-    magic_ok = (
-        f"OK (0x{EXPECTED_MAGIC:X})"
-        if header.magic == EXPECTED_MAGIC
-        else f"INVALID (0x{header.magic:X})"
-    )
+    duration_sec = num_frames * FRAME_DT
 
     final_status = frames[-1].header.is_done.name if frames else "EMPTY"
 
@@ -75,7 +35,7 @@ def print_episode_summary(header: EpisodeHeader, frames: list[Frame], filepath: 
     print("=" * 78)
     print(f"File Path:       {filepath}")
     print(f"File Size:       {file_size:,} bytes")
-    print(f"Magic:           {magic_ok}")
+    print(f"Magic:           0x{header.magic:X}")
     print(f"Boss:            {header.boss_name} (ID: {header.boss_id})")
     print(f"Difficulty:      {header.difficulty_name} (Tier {header.boss_difficulty})")
     print(f"Nail Damage:     {header.nail_damage}")
@@ -87,7 +47,7 @@ def print_episode_summary(header: EpisodeHeader, frames: list[Frame], filepath: 
 
 def print_frame_detail(frame: Frame, total_frames: int):
     h = frame.header
-    t_sec = h.frame_id * 0.02
+    t_sec = h.frame_id * FRAME_DT
 
     print(
         f"\n--- FRAME #{h.frame_id} / {total_frames - 1} (Time: {t_sec:.2f}s) | Status: {h.is_done.name} ---"
@@ -102,7 +62,7 @@ def print_frame_detail(frame: Frame, total_frames: int):
     print(
         f"  Cooldowns:     Nail={h.nail_cooldown:4.2f}s | Dash={h.dash_cooldown:4.2f}s | Invuln={h.invuln_remaining:4.2f}s | Focus={h.focus_progress:4.2f}"
     )
-    print(f"  Combat Flags:  {format_knight_flags(h.knight_flags)}")
+    print(f"  Combat Flags:  {flag_names(h.knight_flags)}")
 
     print("\n[BOSS]")
     print(f"  Position:      X={h.boss_x:7.2f}, Y={h.boss_y:7.2f}")
@@ -114,14 +74,14 @@ def print_frame_detail(frame: Frame, total_frames: int):
     print(
         f"  FSM State:     ID={h.boss_fsm_state} (Prev={h.prev_fsm_state}) | State Time={h.fsm_state_time:.2f}s"
     )
-    print(f"  Frame Flags:   {format_frame_flags(h.flags)}")
+    print(f"  Frame Flags:   {flag_names(h.flags)}")
 
     print("\n[INPUTS]")
-    print(f"  Pressed (tap): {format_buttons(h.action_pressed)}")
-    print(f"  Held (down):   {format_buttons(h.action_held)}")
+    print(f"  Pressed (tap): {flag_names(h.action_pressed)}")
+    print(f"  Held (down):   {flag_names(h.action_held)}")
 
     print(f"\n[DYNAMIC ENTITIES: {h.entity_count}]")
-    if h.entity_count == 0 or not frame.entities:
+    if not frame.entities:
         print("  (No dynamic hazards or projectiles active)")
     else:
         print(
@@ -160,10 +120,6 @@ def main():
 
     args = parser.parse_args()
 
-    if not os.path.exists(args.filepath):
-        print(f"Error: File not found at '{args.filepath}'", file=sys.stderr)
-        sys.exit(1)
-
     try:
         header, frames = EpisodeReader.read_file(args.filepath)
     except Exception as e:
@@ -177,15 +133,13 @@ def main():
         return
 
     if args.last:
-        frame_idx = len(frames) - 1
-        print_frame_detail(frames[frame_idx], len(frames))
-    elif args.tail:
-        start_idx = max(0, len(frames) - args.tail)
-        for i in range(start_idx, len(frames)):
-            print_frame_detail(frames[i], len(frames))
+        args.tail = 1
+    if args.tail:
+        selected = frames[-args.tail:]
     else:
-        frame_idx = max(0, min(args.frame, len(frames) - 1))
-        print_frame_detail(frames[frame_idx], len(frames))
+        selected = [frames[max(0, min(args.frame, len(frames) - 1))]]
+    for frame in selected:
+        print_frame_detail(frame, len(frames))
 
 
 if __name__ == "__main__":

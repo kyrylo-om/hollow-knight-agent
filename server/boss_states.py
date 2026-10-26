@@ -6,1612 +6,1611 @@ State ids run 1..N per boss; 0 = unknown state.
 
 import numpy as np
 
-# boss_id -> state_id -> state name (string keys, JSON style)
-BOSS_FSM_STATES: dict[str, dict[str, str]] = {
-    "1": {
-        "1": "Sleep",
-        "2": "Init",
-        "3": "Wake",
-        "4": "Fly",
-        "5": "Buzz",
-        "6": "Super Choose",
-        "7": "Charge Antic",
-        "8": "Charge",
-        "9": "Charge Recover L",
-        "10": "Super End",
-        "11": "Recover End",
-        "12": "Charge Recover D",
-        "13": "Charge Recover R",
-        "14": "Charge Recover U",
-        "15": "Slam Antic",
-        "16": "Check Direction",
-        "17": "Go Left",
-        "18": "Go Right",
-        "19": "Launch Up",
-        "20": "Flying",
-        "21": "Turn Left",
-        "22": "Launch Down",
-        "23": "Turn Right",
-        "24": "Slam Down",
-        "25": "Slam Up",
-        "26": "Slam End",
-        "27": "Invincible",
-        "28": "GG Boss Wake",
-        "29": "Wake Sound",
-        "30": "GG Extra Pause"
-    },
-    "2": {
-        "1": "Init",
-        "2": "Intro Roar Antic",
-        "3": "Intro Roar Left",
-        "4": "Idle",
-        "5": "Lurk",
-        "6": "Choose Attack",
-        "7": "Swoop Antic",
-        "8": "Swoop L",
-        "9": "Swoop Direction",
-        "10": "Swoop R",
-        "11": "Swoop Rise",
-        "12": "Summon Antic",
-        "13": "Check Dir",
-        "14": "Roar Left",
-        "15": "Roar Right",
-        "16": "Summon",
-        "17": "Roar End",
-        "18": "Swoop In",
-        "19": "Col Music",
-        "20": "Set GG",
-        "21": "Title?",
-        "22": "GG Summon",
-        "23": "Check Dir 2",
-        "24": "Intro Roar Right",
-        "25": "Check Summon",
-        "26": "Check Summon GG",
-        "27": "Wait Frame"
-    },
-    "3": {
-        "1": "Init",
-        "2": "Dormant",
-        "3": "Wake",
-        "4": "Wake Jump",
-        "5": "Wake In Air",
-        "6": "Wake Land",
-        "7": "Wake Roar",
-        "8": "Start",
-        "9": "Roar End",
-        "10": "Idle",
-        "11": "Super Ready",
-        "12": "Super Select",
-        "13": "Super Spit",
-        "14": "Shoot",
-        "15": "Detect Hero Pos",
-        "16": "L",
-        "17": "R",
-        "18": "Super Cooldown",
-        "19": "Super Jump",
-        "20": "Detect Hero Pos 2",
-        "21": "L 2",
-        "22": "R 2",
-        "23": "Detect Hero Pos 3",
-        "24": "L 3",
-        "25": "R 3",
-        "26": "In Air",
-        "27": "Land",
-        "28": "Jump",
-        "29": "L 4",
-        "30": "R 4",
-        "31": "In Air 2",
-        "32": "Land 2",
-        "33": "Jump 2",
-        "34": "Repeat Check",
-        "35": "Pause",
-        "36": "Set Repeater",
-        "37": "Music",
-        "38": "Aim Return",
-        "39": "GG Wake",
-        "40": "Title"
-    },
-    "4": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Turn R",
-        "4": "Turn L",
-        "5": "Move Choice",
-        "6": "Jump Antic",
-        "7": "Jump",
-        "8": "Fall",
-        "9": "Land",
-        "10": "Determine Jump",
-        "11": "Random",
-        "12": "Towards",
-        "13": "Random Left",
-        "14": "Random Right",
-        "15": "JA Antic",
-        "16": "JA Check Hero Pos",
-        "17": "JA Right",
-        "18": "JA Left",
-        "19": "JA Jump",
-        "20": "JA Hit",
-        "21": "JA Recoil",
-        "22": "JA Recoil 2",
-        "23": "JA End",
-        "24": "Rise",
-        "25": "JA Rise",
-        "26": "JA Fall",
-        "27": "S Check Hero Pos",
-        "28": "S Right",
-        "29": "S Left",
-        "30": "S Antic",
-        "31": "S Jump",
-        "32": "S Rise",
-        "33": "S Fall",
-        "34": "S Land",
-        "35": "S Attack Antic",
-        "36": "S Attack",
-        "37": "S Attack Recover",
-        "38": "Run Antic",
-        "39": "Run",
-        "40": "State 1",
-        "41": "Stun Start",
-        "42": "Check Direction",
-        "43": "Stun Turn L",
-        "44": "Stun Turn R",
-        "45": "Stun In Air",
-        "46": "Stun Land",
-        "47": "Roll End",
-        "48": "Open Uuup",
-        "49": "Recover",
-        "50": "Idle Pause",
-        "51": "Rage Jump Antic",
-        "52": "Jump 2",
-        "53": "Rise 2",
-        "54": "Fall 2",
-        "55": "State 2",
-        "56": "R Attack Antic",
-        "57": "Rage",
-        "58": "Turn",
-        "59": "Dormant",
-        "60": "Opened",
-        "61": "Hit",
-        "62": "Rage End",
-        "63": "Rage Begin",
-        "64": "Slam",
-        "65": "Rage Slam",
-        "66": "Rage Check",
-        "67": "Floor Crack",
-        "68": "Floor Crack?",
-        "69": "Anim End",
-        "70": "Stun Fail",
-        "71": "JA Jump 2",
-        "72": "JA Hit 2",
-        "73": "JA Rise 2",
-        "74": "JA Fall 2",
-        "75": "JA Antic 2",
-        "76": "Floor Break",
-        "77": "Death Land",
-        "78": "JA Slam",
-        "79": "Death Open",
-        "80": "Opened 2",
-        "81": "Hit 2",
-        "82": "Death Anim Start",
-        "83": "Steam",
-        "84": "Blow",
-        "85": "Ready",
-        "86": "Death Head Land",
-        "87": "Cough",
-        "88": "Start Fall",
-        "89": "Rubble End",
-        "90": "First Idle",
-        "91": "Check",
-        "92": "Decrement Battle Enemies",
-        "93": "Land Noise",
-        "94": "Music",
-        "95": "Row Check",
-        "96": "Voice?",
-        "97": "Voice? 2",
-        "98": "To Phase 2",
-        "99": "To Phase 3",
-        "100": "Particle Pause",
-        "101": "Particle End",
-        "102": "Walls Check",
-        "103": "Random R",
-        "104": "Random L",
-        "105": "Walls Check 2",
-        "106": "Check Jump Dir",
-        "107": "Raycast L",
-        "108": "Raycast R",
-        "109": "Pause Short",
-        "110": "Pause Long",
-        "111": "Open Map Shop and Journal",
-        "112": "Esc Jump Antic",
-        "113": "Esc Jump",
-        "114": "Esc Rise",
-        "115": "Esc Fall",
-        "116": "Esc Land",
-        "117": "Escaped Idle",
-        "118": "Beta End Event",
-        "119": "Barrels?",
-        "120": "Head Reset",
-        "121": "Head Frame",
-        "122": "Check If GG",
-        "123": "Boss Death Sting",
-        "124": "Set Head Facing",
-        "125": "Chinese?",
-        "126": "Death Head Land Chinese",
-        "127": "State 3"
-    },
-    "5": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Turn R",
-        "4": "Turn L",
-        "5": "Move Choice",
-        "6": "Jump Antic",
-        "7": "Jump",
-        "8": "Fall",
-        "9": "Land",
-        "10": "Determine Jump",
-        "11": "Random",
-        "12": "Towards",
-        "13": "Random Left",
-        "14": "Random Right",
-        "15": "JA Antic",
-        "16": "JA Check Hero Pos",
-        "17": "JA Right",
-        "18": "JA Left",
-        "19": "JA Jump",
-        "20": "JA Hit",
-        "21": "JA Recoil",
-        "22": "JA Recoil 2",
-        "23": "JA End",
-        "24": "Rise",
-        "25": "JA Rise",
-        "26": "JA Fall",
-        "27": "S Check Hero Pos",
-        "28": "S Right",
-        "29": "S Left",
-        "30": "S Antic",
-        "31": "S Jump",
-        "32": "S Rise",
-        "33": "S Fall",
-        "34": "S Land",
-        "35": "S Attack Antic",
-        "36": "S Attack",
-        "37": "S Attack Recover",
-        "38": "Run Antic",
-        "39": "Run",
-        "40": "State 1",
-        "41": "Stun Start",
-        "42": "Check Direction",
-        "43": "Stun Turn L",
-        "44": "Stun Turn R",
-        "45": "Stun In Air",
-        "46": "Stun Land",
-        "47": "Roll End",
-        "48": "Open Uuup",
-        "49": "Recover",
-        "50": "Idle Pause",
-        "51": "Rage Jump Antic",
-        "52": "Jump 2",
-        "53": "Rise 2",
-        "54": "Fall 2",
-        "55": "State 2",
-        "56": "R Attack Antic",
-        "57": "Rage",
-        "58": "Turn",
-        "59": "Dormant",
-        "60": "Opened",
-        "61": "Hit",
-        "62": "Rage End",
-        "63": "Rage Begin",
-        "64": "Slam",
-        "65": "Rage Slam",
-        "66": "Rage Check",
-        "67": "Floor Crack",
-        "68": "Floor Crack?",
-        "69": "Anim End",
-        "70": "Stun Fail",
-        "71": "JA Jump 2",
-        "72": "JA Hit 2",
-        "73": "JA Rise 2",
-        "74": "JA Fall 2",
-        "75": "JA Antic 2",
-        "76": "Floor Break",
-        "77": "Death Land",
-        "78": "JA Slam",
-        "79": "Death Open",
-        "80": "Opened 2",
-        "81": "Hit 2",
-        "82": "Death Anim Start",
-        "83": "Steam",
-        "84": "Blow",
-        "85": "Ready",
-        "86": "Death Head Land",
-        "87": "Cough",
-        "88": "Start Fall",
-        "89": "Rubble End",
-        "90": "First Idle",
-        "91": "Check",
-        "92": "Decrement Battle Enemies",
-        "93": "Land Noise",
-        "94": "Steam 2",
-        "95": "Init 2",
-        "96": "Music",
-        "97": "Row Check",
-        "98": "Voice?",
-        "99": "Voice? 2",
-        "100": "To Phase 2",
-        "101": "To Phase 3",
-        "102": "Particle Pause",
-        "103": "Particle End",
-        "104": "Walls Check",
-        "105": "Random R",
-        "106": "Random L",
-        "107": "Walls Check 2",
-        "108": "Check Jump Dir",
-        "109": "Raycast L",
-        "110": "Raycast R",
-        "111": "Pause Short",
-        "112": "Pause Long",
-        "113": "Set PlayerData",
-        "114": "Wait for Hero",
-        "115": "Check GG",
-        "116": "Dream Return",
-        "117": "Set Head Facing"
-    },
-    "6": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "GDash Antic",
-        "4": "G Dash",
-        "5": "GDash Recover1",
-        "6": "GDash Recover2",
-        "7": "Pause",
-        "8": "Jump Antic",
-        "9": "Aim Jump",
-        "10": "Jump",
-        "11": "In Air",
-        "12": "Land",
-        "13": "Re Aim",
-        "14": "Set ADash",
-        "15": "ADash Antic",
-        "16": "A Dash",
-        "17": "Land Y",
-        "18": "Fire",
-        "19": "Firing R",
-        "20": "Firing L",
-        "21": "Hit Roof",
-        "22": "Wall L",
-        "23": "Jump R",
-        "24": "Wall R",
-        "25": "Jump L",
-        "26": "Sphere Antic G",
-        "27": "Sphere",
-        "28": "Sphere Recover",
-        "29": "Set Jump Only",
-        "30": "Set Sphere A",
-        "31": "Sphere Antic A",
-        "32": "Sphere A",
-        "33": "Sphere Recover A",
-        "34": "Sphere A End",
-        "35": "Aim Sphere Jump",
-        "36": "Throw Antic",
-        "37": "Throw",
-        "38": "Thrown",
-        "39": "Throw Recover",
-        "40": "Lock?",
-        "41": "Lock L",
-        "42": "Lock R",
-        "43": "Lock UL",
-        "44": "Lock UR",
-        "45": "Flip?",
-        "46": "Run",
-        "47": "Move Choice A",
-        "48": "Hard Land",
-        "49": "G Sphere?",
-        "50": "Can Throw?",
-        "51": "Move Choice B",
-        "52": "Evade Antic",
-        "53": "Evade",
-        "54": "Dmg Response",
-        "55": "Dmg Idle",
-        "56": "Run Away?",
-        "57": "Evade Land",
-        "58": "After Evade",
-        "59": "Stun Start",
-        "60": "Stun Air",
-        "61": "Stun Land",
-        "62": "Stun Recover",
-        "63": "Inert",
-        "64": "Wake",
-        "65": "Do Sphere?",
-        "66": "Refight Ready",
-        "67": "Refight Wake",
-        "68": "Escalation",
-        "69": "Flourish",
-        "70": "Run Antic",
-        "71": "Set Scale",
-        "72": "Music",
-        "73": "GG Music",
-        "74": "GG Intro 1",
-        "75": "GG Fall",
-        "76": "GG Land",
-        "77": "GG Reset"
-    },
-    "7": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "GDash Antic",
-        "4": "G Dash",
-        "5": "GDash Recover1",
-        "6": "GDash Recover2",
-        "7": "Pause",
-        "8": "Jump Antic",
-        "9": "Aim Jump",
-        "10": "Jump",
-        "11": "In Air",
-        "12": "Land",
-        "13": "Re Aim",
-        "14": "Set ADash",
-        "15": "ADash Antic",
-        "16": "A Dash",
-        "17": "Land Y",
-        "18": "Fire",
-        "19": "Firing R",
-        "20": "Firing L",
-        "21": "Hit Roof",
-        "22": "Wall L",
-        "23": "Jump R",
-        "24": "Wall R",
-        "25": "Jump L",
-        "26": "Sphere Antic G",
-        "27": "Sphere",
-        "28": "Sphere Recover",
-        "29": "Set Jump Only",
-        "30": "Set Sphere A",
-        "31": "Sphere Antic A",
-        "32": "Sphere A",
-        "33": "Sphere Recover A",
-        "34": "Sphere A End",
-        "35": "Aim Sphere Jump",
-        "36": "Throw Antic",
-        "37": "Throw",
-        "38": "Thrown",
-        "39": "Throw Recover",
-        "40": "Lock?",
-        "41": "Lock L",
-        "42": "Lock R",
-        "43": "Lock UL",
-        "44": "Lock UR",
-        "45": "Flip?",
-        "46": "Run",
-        "47": "Move Choice A",
-        "48": "Hard Land",
-        "49": "G Sphere?",
-        "50": "Can Throw?",
-        "51": "Move Choice B",
-        "52": "Evade Antic",
-        "53": "Evade",
-        "54": "Dmg Response",
-        "55": "Dmg Idle",
-        "56": "Run Away?",
-        "57": "Evade Land",
-        "58": "After Evade",
-        "59": "Stun Start",
-        "60": "Stun Air",
-        "61": "Stun Land",
-        "62": "Stun Recover",
-        "63": "Inert",
-        "64": "Wake",
-        "65": "Do Sphere?",
-        "66": "Refight Ready",
-        "67": "Refight Wake",
-        "68": "Escalation",
-        "69": "Counter Antic",
-        "70": "Counter Stance",
-        "71": "Counter End",
-        "72": "Ev Or Counter",
-        "73": "CA Antic",
-        "74": "CA 1",
-        "75": "CA 2",
-        "76": "CA Recover",
-        "77": "Barb?",
-        "78": "Barb Antic",
-        "79": "Barb Throw",
-        "80": "Barb Recover",
-        "81": "Flourish",
-        "82": "Flourish?",
-        "83": "GG Pause",
-        "84": "Music",
-        "85": "Music (not GG)"
-    },
-    "8": {
-        "1": "Init",
-        "2": "Hidden",
-        "3": "Emerge Pause",
-        "4": "Left or Right?",
-        "5": "Emerge Right",
-        "6": "Emerge Left",
-        "7": "Emerge",
-        "8": "Charge",
-        "9": "Pause",
-        "10": "Pause 2",
-        "11": "Submerge 1",
-        "12": "Submerge CD",
-        "13": "Hero Beyond?",
-        "14": "Play Range",
-        "15": "Detach",
-        "16": "Submerge 2",
-        "17": "Submerge 3",
-        "18": "Submerge 4",
-        "19": "Hit Right",
-        "20": "Hit Left",
-        "21": "Sleep",
-        "22": "Shake",
-        "23": "Roar",
-        "24": "Roar End",
-        "25": "Attack Choice",
-        "26": "Leap Start",
-        "27": "Leap Launch",
-        "28": "In Air",
-        "29": "Land",
-        "30": "Start Pause",
-        "31": "Dormant",
-        "32": "GG Pause",
-        "33": "Title?",
-        "34": "Music",
-        "35": "Music 2"
-    },
-    "9": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Rage",
-        "4": "Dead",
-        "5": "Check Spawn",
-        "6": "Select Point",
-        "7": "Spawn",
-        "8": "Play Idle",
-        "9": "Roar Start",
-        "10": "Roar End",
-        "11": "Select Point 2",
-        "12": "Spawn 2",
-        "13": "Repick",
-        "14": "Spawn 2 Cancel",
-        "15": "Spawn 1 Cancel",
-        "16": "GG?",
-        "17": "Delay Roar"
-    },
-    "10": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Dash Dir",
-        "4": "Dash R",
-        "5": "Dash L",
-        "6": "Dash Arrive",
-        "7": "Dash Antic",
-        "8": "Dash Attack",
-        "9": "End R",
-        "10": "End L",
-        "11": "Dash Recover",
-        "12": "Dash Leave",
-        "13": "Away",
-        "14": "Sleep",
-        "15": "Pause",
-        "16": "Dash Hit Off",
-        "17": "Dstab Pos",
-        "18": "Dstab Arrive",
-        "19": "Dstab Attack",
-        "20": "Dstab Land",
-        "21": "Dstab Leave",
-        "22": "Shift?",
-        "23": "Throw Pos",
-        "24": "Throw R",
-        "25": "Throw L",
-        "26": "Throw Antic",
-        "27": "Set Throws",
-        "28": "Throw",
-        "29": "Throw CD",
-        "30": "Keep Throwing?",
-        "31": "Wall Leave 1",
-        "32": "Wall Leave 2",
-        "33": "Arrive",
-        "34": "Start Pause",
-        "35": "Attack Choice",
-        "36": "Sub Idle",
-        "37": "S Throw R",
-        "38": "S Throw L",
-        "39": "Throw Antic 2",
-        "40": "Set Throws 2",
-        "41": "Throw 2",
-        "42": "Throw CD 2",
-        "43": "Keep Throwing? 2",
-        "44": "Arrive 2",
-        "45": "Throw Pos 2",
-        "46": "Arrive Pause",
-        "47": "Leave Pause",
-        "48": "Throw UD?",
-        "49": "Pos UD",
-        "50": "Pos DU",
-        "51": "After Throw Pause",
-        "52": "Wide Throw L",
-        "53": "Wide Throw R",
-        "54": "Narrow Throw L",
-        "55": "Narrow Throw R",
-        "56": "High Check LR",
-        "57": "Shift Y?",
-        "58": "Short GG",
-        "59": "Short GG 2"
-    },
-    "11": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Dash Dir",
-        "4": "Dash R",
-        "5": "Dash L",
-        "6": "Dash Arrive",
-        "7": "Dash Antic",
-        "8": "Dash Attack",
-        "9": "End R",
-        "10": "End L",
-        "11": "Dash Recover",
-        "12": "Dash Leave",
-        "13": "Away",
-        "14": "Sleep",
-        "15": "Pause",
-        "16": "Dash Hit Off",
-        "17": "Dstab Pos",
-        "18": "Dstab Arrive",
-        "19": "Dstab Attack",
-        "20": "Dstab Land",
-        "21": "Dstab Leave",
-        "22": "Shift?",
-        "23": "Throw Pos",
-        "24": "Throw R",
-        "25": "Throw L",
-        "26": "Throw Antic",
-        "27": "Set Throws",
-        "28": "Throw",
-        "29": "Throw CD",
-        "30": "Keep Throwing?",
-        "31": "Wall Leave 1",
-        "32": "Wall Leave 2",
-        "33": "Arrive",
-        "34": "Start Pause",
-        "35": "Attack Choice",
-        "36": "Sub Idle",
-        "37": "S Throw R",
-        "38": "S Throw L",
-        "39": "Throw Antic 2",
-        "40": "Set Throws 2",
-        "41": "Throw 2",
-        "42": "Throw CD 2",
-        "43": "Keep Throwing? 2",
-        "44": "Arrive 2",
-        "45": "Throw Pos 2",
-        "46": "Arrive Pause",
-        "47": "Leave Pause",
-        "48": "Throw UD?",
-        "49": "Pos UD",
-        "50": "Pos DU",
-        "51": "After Throw Pause",
-        "52": "Wide Throw L",
-        "53": "Wide Throw R",
-        "54": "Narrow Throw L",
-        "55": "Narrow Throw R",
-        "56": "High Check LR",
-        "57": "Shift Y?",
-        "58": "Short GG",
-        "59": "Short GG 2"
-    },
-    "12": {
-        "1": "Wait",
-        "2": "Attack Antic",
-        "3": "Attack",
-        "4": "CD",
-        "5": "Attack Antic 2",
-        "6": "Sleep",
-        "7": "Attack 2",
-        "8": "Attack Check",
-        "9": "Init",
-        "10": "Shoot Anim",
-        "11": "Rage Wait",
-        "12": "R Antic",
-        "13": "Raging"
-    },
-    "13": {
-        "1": "Init",
-        "2": "Sleep",
-        "3": "Wake",
-        "4": "Idle",
-        "5": "Stun Start",
-        "6": "Stun Air",
-        "7": "Stun Land",
-        "8": "Stun Recover",
-        "9": "Dash Antic",
-        "10": "Dash",
-        "11": "Dash Recover",
-        "12": "Dash End",
-        "13": "Jump Antic",
-        "14": "Aim Jump",
-        "15": "Jump",
-        "16": "In Air",
-        "17": "Land",
-        "18": "TeleOut 1",
-        "19": "TeleOut 2",
-        "20": "Tele Pos",
-        "21": "Aim R",
-        "22": "Aim L",
-        "23": "TeleIn 1",
-        "24": "TeleIn 2",
-        "25": "Slash 1",
-        "26": "Slash 2",
-        "27": "Slash Recover",
-        "28": "Start Fall",
-        "29": "Attack Choice",
-        "30": "Glob Antic 1",
-        "31": "Glob Strike",
-        "32": "Glob Recover",
-        "33": "Glob Antic 2",
-        "34": "Bee Roar Antic",
-        "35": "Roar",
-        "36": "Roar Recover",
-        "37": "Phase Check",
-        "38": "Phase 1",
-        "39": "Phase 2",
-        "40": "Phase 3",
-        "41": "Fall",
-        "42": "Intro Land",
-        "43": "Intro",
-        "44": "Intro End",
-        "45": "Activate",
-        "46": "Roar Cooldown",
-        "47": "Tele Pause",
-        "48": "Music",
-        "49": "Variant"
-    },
-    "14": {
-        "1": "Init",
-        "2": "Pause",
-        "3": "Sleep",
-        "4": "Start Pause",
-        "5": "Rumble Start",
-        "6": "Spawning 1",
-        "7": "Spawning 2",
-        "8": "Spawning 3",
-        "9": "Spawning 4",
-        "10": "Check Final",
-        "11": "Check",
-        "12": "Stop Spawning",
-        "13": "Roar Start",
-        "14": "Roar",
-        "15": "Roar End",
-        "16": "Idle",
-        "17": "Set Dstab",
-        "18": "Jump",
-        "19": "In Air",
-        "20": "Jump Antic",
-        "21": "Land",
-        "22": "Aim Jump",
-        "23": "Aim Dstab",
-        "24": "Dstab Antic",
-        "25": "Dstab Fall",
-        "26": "Dstab Land",
-        "27": "Attack Choice",
-        "28": "Jump Check",
-        "29": "Dash Antic",
-        "30": "Dash Attack",
-        "31": "Dash Recover",
-        "32": "Dash Attack 2",
-        "33": "Dash Attack 3",
-        "34": "Dstab Recover",
-        "35": "Ohead Antic",
-        "36": "Ohead Slashing",
-        "37": "Ohead Recover",
-        "38": "Evade Antic",
-        "39": "Evade Dash",
-        "40": "Evade Recover",
-        "41": "Shake Antic",
-        "42": "Shaking Start",
-        "43": "Shaking Spawn",
-        "44": "Dash Antic 2",
-        "45": "Dash Antic 3",
-        "46": "Air Dash?",
-        "47": "Fall",
-        "48": "Set Height",
-        "49": "Set Counter",
-        "50": "Damage Response",
-        "51": "To Attack?",
-        "52": "Jump Antic 2",
-        "53": "Aim Jump 2",
-        "54": "Jump 2",
-        "55": "In Air 2",
-        "56": "Land 2",
-        "57": "Shake End",
-        "58": "First Counter",
-        "59": "Shake?",
-        "60": "Inc Dstab",
-        "61": "Stun Start",
-        "62": "Stunned",
-        "63": "Stun Recover",
-        "64": "Waiting",
-        "65": "Repause",
-        "66": "Close Gates",
-        "67": "Intro Fall",
-        "68": "Intro Land",
-        "69": "Music",
-        "70": "Set Pos",
-        "71": "GG Wait"
-    },
-    "15": {
-        "1": "Init",
-        "2": "Pause",
-        "3": "Roar Start",
-        "4": "Roar",
-        "5": "Roar End",
-        "6": "Idle",
-        "7": "Set Dstab",
-        "8": "Jump",
-        "9": "In Air",
-        "10": "Jump Antic",
-        "11": "Land",
-        "12": "Aim Jump",
-        "13": "Aim Dstab",
-        "14": "Dstab Antic",
-        "15": "Dstab Fall",
-        "16": "Dstab Land",
-        "17": "Attack Choice",
-        "18": "Jump Check",
-        "19": "Dash Antic",
-        "20": "Dash Attack",
-        "21": "Dash Recover",
-        "22": "Dash Attack 2",
-        "23": "Dash Attack 3",
-        "24": "Dstab Recover",
-        "25": "Ohead Antic",
-        "26": "Ohead Slashing",
-        "27": "Ohead Recover",
-        "28": "Evade Antic",
-        "29": "Evade Dash",
-        "30": "Evade Recover",
-        "31": "Shake Antic",
-        "32": "Shaking Start",
-        "33": "Shaking Spawn",
-        "34": "Dash Antic 2",
-        "35": "Dash Antic 3",
-        "36": "Air Dash?",
-        "37": "Fall",
-        "38": "Set Height",
-        "39": "Set Counter",
-        "40": "Damage Response",
-        "41": "To Attack?",
-        "42": "Jump Antic 2",
-        "43": "Aim Jump 2",
-        "44": "Jump 2",
-        "45": "In Air 2",
-        "46": "Land 2",
-        "47": "Shake End",
-        "48": "First Counter",
-        "49": "Shake?",
-        "50": "Inc Dstab",
-        "51": "Stun Start",
-        "52": "Stunned",
-        "53": "Stun Recover",
-        "54": "Waiting",
-        "55": "Repause",
-        "56": "Close Gates",
-        "57": "Intro Fall",
-        "58": "Intro Land",
-        "59": "Set X",
-        "60": "Music",
-        "61": "Set X GG"
-    },
-    "16": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Charge Init",
-        "4": "Charge R",
-        "5": "Wait",
-        "6": "Jump Init",
-        "7": "Jump",
-        "8": "Jump Land",
-        "9": "Jump Wait",
-        "10": "Roar Init",
-        "11": "Roar Loop",
-        "12": "Roar Finish",
-        "13": "Hollow Idle",
-        "14": "Trans 1",
-        "15": "Trans 2",
-        "16": "Trans 3",
-        "17": "Trans 4",
-        "18": "Trans 5",
-        "19": "Roar End",
-        "20": "Jump Antic",
-        "21": "Launch",
-        "22": "Aim Jump",
-        "23": "Rising",
-        "24": "Falling",
-        "25": "Land 2",
-        "26": "Face L",
-        "27": "Face R",
-        "28": "Charge Start",
-        "29": "Charge L",
-        "30": "C Antic 2",
-        "31": "C Antic 3",
-        "32": "Encountered",
-        "33": "Wake",
-        "34": "Spit Antic",
-        "35": "Spit 1",
-        "36": "Spit 2",
-        "37": "Spit Recover",
-        "38": "Spit 3",
-        "39": "Spit 4",
-        "40": "Spit 5",
-        "41": "Set Spit",
-        "42": "Idle No Spit",
-        "43": "Roof Jump?",
-        "44": "RS Jump Antic",
-        "45": "RS Jump",
-        "46": "Roof Antic",
-        "47": "Roof Drop",
-        "48": "Fall Antic",
-        "49": "To Fall",
-        "50": "Init R",
-        "51": "Init L",
-        "52": "GG Pause",
-        "53": "GG Activate"
-    },
-    "17": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Choose Attack",
-        "4": "Swoop Antic",
-        "5": "Swoop L",
-        "6": "Swoop Direction",
-        "7": "Swoop R",
-        "8": "Swoop Rise",
-        "9": "Dormant",
-        "10": "Set Pos",
-        "11": "Init Velocity",
-        "12": "Acid Roar Antic",
-        "13": "Spit 1",
-        "14": "Spit 2",
-        "15": "Spit 3",
-        "16": "Spit 4",
-        "17": "Spit 5",
-        "18": "Acid Roar End",
-        "19": "Spit 6",
-        "20": "Summon Roar",
-        "21": "Summon Recover",
-        "22": "Summon",
-        "23": "Resummon",
-        "24": "Shift Down?",
-        "25": "HP",
-        "26": "Choose Attack 2",
-        "27": "Roof Antic",
-        "28": "Roof Up",
-        "29": "Roof Impact",
-        "30": "Globs",
-        "31": "Roof Return"
-    },
-    "18": {
-        "1": "Init",
-        "2": "Start Fall",
-        "3": "Start Land",
-        "4": "Roar",
-        "5": "Roar End",
-        "6": "Roar Antic",
-        "7": "Roar Recover",
-        "8": "Hop Start Antic",
-        "9": "Hop Start",
-        "10": "Hop",
-        "11": "Hop Land",
-        "12": "Hop Wall",
-        "13": "Set Hops",
-        "14": "Move Choice",
-        "15": "Lunge Antic",
-        "16": "Lunge Launch",
-        "17": "Lunge Air",
-        "18": "Lunge Swipe",
-        "19": "Lunge Recover",
-        "20": "Jump Antic",
-        "21": "Jump",
-        "22": "Roof",
-        "23": "Summon?",
-        "24": "Return",
-        "25": "Slam",
-        "26": "Spawn",
-        "27": "Spawn Recover",
-        "28": "Resummon Pause",
-        "29": "Repos",
-        "30": "Return Antic",
-        "31": "Phase 1",
-        "32": "Buzzer",
-        "33": "Resummon?",
-        "34": "Spitter",
-        "35": "Roller",
-        "36": "Enemy Count",
-        "37": "Move Choice None",
-        "38": "Stun Start",
-        "39": "Stun Air",
-        "40": "Stun",
-        "41": "Stun Recover",
-        "42": "Death Start",
-        "43": "Stun Hit",
-        "44": "Sleep",
-        "45": "Music"
-    },
-    "19": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Move Choice",
-        "4": "Forward",
-        "5": "Back",
-        "6": "Scuttle",
-        "7": "Scuttle End",
-        "8": "Attack Choice",
-        "9": "RC Antic",
-        "10": "RC Charge",
-        "11": "RC Charging",
-        "12": "RC Launch",
-        "13": "RC Air",
-        "14": "RC Land",
-        "15": "Spit Turn?",
-        "16": "Spit Retreat?",
-        "17": "Spit Antic",
-        "18": "Spit",
-        "19": "Spit Recover",
-        "20": "Fire Globs",
-        "21": "Dormant",
-        "22": "Wake"
-    },
-    "20": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Aim",
-        "4": "Beam Antic",
-        "5": "Beam",
-        "6": "Beam End",
-        "7": "Beam Recover",
-        "8": "CD",
-        "9": "Facing R?",
-        "10": "Shoot Antic",
-        "11": "Cancel",
-        "12": "Pause Frame",
-        "13": "Check Facing",
-        "14": "Sleep",
-        "15": "Wake",
-        "16": "Roar Start",
-        "17": "Roar",
-        "18": "Battle Init",
-        "19": "Roar End",
-        "20": "Jump Antic",
-        "21": "Launch",
-        "22": "Aim Jump",
-        "23": "Rising",
-        "24": "Falling",
-        "25": "Land",
-        "26": "Choice",
-        "27": "Hero Range?",
-        "28": "Range Check",
-        "29": "Face Hero",
-        "30": "Aim Left",
-        "31": "Aim Right",
-        "32": "First Idle",
-        "33": "Deparents",
-        "34": "Face Knight",
-        "35": "Clamps",
-        "36": "Lasers",
-        "37": "Shoot Lasers?",
-        "38": "First GG Move"
-    },
-    "21": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Beam End",
-        "4": "Beam Recover",
-        "5": "CD",
-        "6": "Cancel",
-        "7": "Pause Frame",
-        "8": "Check Facing",
-        "9": "Wake",
-        "10": "Roar Start",
-        "11": "Roar",
-        "12": "Battle Init",
-        "13": "Roar End",
-        "14": "Jump Antic",
-        "15": "Launch",
-        "16": "Aim Jump",
-        "17": "Rising",
-        "18": "Falling",
-        "19": "Land",
-        "20": "Choice",
-        "21": "Hero Range?",
-        "22": "First Idle",
-        "23": "Aim 2",
-        "24": "Beam Antic 2",
-        "25": "Beam 2",
-        "26": "Facing R? 2",
-        "27": "Shoot Antic 2",
-        "28": "Range Check 2",
-        "29": "Face Hero 2",
-        "30": "Aim Left 2",
-        "31": "Aim Right 2",
-        "32": "Face Knight",
-        "33": "GG Wait",
-        "34": "Laser Shoot",
-        "35": "Laser Shoot?",
-        "36": "First GG Move"
-    },
-    "22": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Attack Antic",
-        "4": "Zapping",
-        "5": "Gen",
-        "6": "Choice",
-        "7": "Attack Recover",
-        "8": "First?",
-        "9": "Multizap",
-        "10": "Pattern Choice",
-        "11": "Explode",
-        "12": "Wounded",
-        "13": "Recover Antic",
-        "14": "Recover",
-        "15": "Sleep",
-        "16": "Wake Pause",
-        "17": "Wake Rumble",
-        "18": "Burst",
-        "19": "Start",
-        "20": "Music",
-        "21": "Roar",
-        "22": "Roar End"
-    },
-    "23": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Attack Antic",
-        "4": "Attack 1",
-        "5": "Attack Swipe",
-        "6": "Attack Recover",
-        "7": "Cooldown",
-        "8": "Turn",
-        "9": "Stop At Edge",
-        "10": "Set Speed",
-        "11": "Feint?",
-        "12": "Feint",
-        "13": "Walk",
-        "14": "Speed Check",
-        "15": "Active",
-        "16": "Attack Choice",
-        "17": "Jump Antic",
-        "18": "Jump",
-        "19": "DSlash Antic",
-        "20": "DSlash",
-        "21": "Land",
-        "22": "Emerge Dust",
-        "23": "Fall",
-        "24": "Intro Land",
-        "25": "Roar",
-        "26": "Roar End",
-        "27": "Roar Recover",
-        "28": "Cloth?",
-        "29": "Death Shift?",
-        "30": "Shift L",
-        "31": "Shift R",
-        "32": "Death Ready",
-        "33": "Shifted?",
-        "34": "Turn?",
-        "35": "Stab Antic",
-        "36": "Stab",
-        "37": "Smash Antic",
-        "38": "Smash",
-        "39": "Smash End",
-        "40": "End",
-        "41": "Journal",
-        "42": "Steam",
-        "43": "Ready",
-        "44": "Blow",
-        "45": "Sickle Antic",
-        "46": "Sickle Throw",
-        "47": "Throw?",
-        "48": "Slam Antic",
-        "49": "Slamming",
-        "50": "Waves",
-        "51": "Slam End",
-        "52": "Slam?",
-        "53": "Too Close?",
-        "54": "Feint 2",
-        "55": "Repeat?",
-        "56": "Repeat",
-        "57": "Sickle Throw Recover",
-        "58": "Sick Throw CD",
-        "59": "Repeat Pos Check",
-        "60": "Check L",
-        "61": "Check R"
-    },
-    "24": {
-        "1": "Init",
-        "2": "Dormant",
-        "3": "Enter 1",
-        "4": "Enter 2",
-        "5": "Enter 3",
-        "6": "Roar",
-        "7": "Roar End",
-        "8": "Activate",
-        "9": "Idle Start",
-        "10": "Move Choice",
-        "11": "Jump Antic",
-        "12": "Jump",
-        "13": "Aim Jump",
-        "14": "In Air",
-        "15": "Land Normal",
-        "16": "Set Jumps",
-        "17": "After Jump",
-        "18": "Land Waves",
-        "19": "Fall Through?",
-        "20": "FT Through",
-        "21": "FT Fall",
-        "22": "FT Slam",
-        "23": "FT Recover",
-        "24": "Ft Waves",
-        "25": "Charge Antic",
-        "26": "Charge R",
-        "27": "Charge Fall",
-        "28": "Charge Slam",
-        "29": "Charge Start",
-        "30": "Charge L",
-        "31": "Charge Through?",
-        "32": "To CT",
-        "33": "Charge Through",
-        "34": "CT Dir",
-        "35": "CT Left",
-        "36": "CT Right",
-        "37": "Charge Through 2",
-        "38": "CT Dir 2",
-        "39": "CT In L",
-        "40": "CT In R",
-        "41": "JS Antic",
-        "42": "JS Aim",
-        "43": "JS Jump",
-        "44": "JS In Air",
-        "45": "Stomp Antic",
-        "46": "Stomp",
-        "47": "Stomp Slash",
-        "48": "Slash End",
-        "49": "Slash Recover",
-        "50": "Land Dir",
-        "51": "Slash Waves R",
-        "52": "Slash Waves L",
-        "53": "Shift?",
-        "54": "Shift Dir",
-        "55": "Stomp Shift L",
-        "56": "Stomp Shift R",
-        "57": "Spit Antic",
-        "58": "Spit Recover",
-        "59": "Spit Dir",
-        "60": "Spit L",
-        "61": "Spit R",
-        "62": "Respit?",
-        "63": "Stun Start",
-        "64": "B Roar Antic",
-        "65": "B Roar",
-        "66": "BR Recover",
-        "67": "Unconstrain Dir",
-        "68": "Unconstrain L",
-        "69": "Unconstrain R",
-        "70": "Stun Air",
-        "71": "Stun",
-        "72": "Send Event",
-        "73": "Stand",
-        "74": "Run",
-        "75": "Run Antic",
-        "76": "Run Flip",
-        "77": "Run End",
-        "78": "Pause",
-        "79": "Level Check",
-        "80": "Level 1",
-        "81": "Set Damage",
-        "82": "Move Level",
-        "83": "Move Choice 1",
-        "84": "Spit Set",
-        "85": "Turn L",
-        "86": "Turn R",
-        "87": "Level 2",
-        "88": "Move Choice 2",
-        "89": "Level 3",
-        "90": "Move Choice 3",
-        "91": "4+",
-        "92": "Enter Short",
-        "93": "Music",
-        "94": "GG Pause"
-    },
-    "25": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Shoot Antic",
-        "4": "Shoot Aim",
-        "5": "Shoot",
-        "6": "Shoot CD",
-        "7": "Slash Aim",
-        "8": "Slash Antic",
-        "9": "Dash",
-        "10": "Slash",
-        "11": "Slash Recover",
-        "12": "Side Tele Aim",
-        "13": "Tele Antic",
-        "14": "Tele L",
-        "15": "Tele R",
-        "16": "Side Tele",
-        "17": "After Side Tele",
-        "18": "Pause",
-        "19": "Move Decision",
-        "20": "Can Shoot?",
-        "21": "Tele Choice",
-        "22": "Up Tele Aim",
-        "23": "Up Tele",
-        "24": "Stomp Antic",
-        "25": "Stomp Air",
-        "26": "Stomp Slash",
-        "27": "Stomp Recover",
-        "28": "Evade Check",
-        "29": "Evade Choice",
-        "30": "Evade Antic",
-        "31": "Evade Dir",
-        "32": "Evade Right",
-        "33": "Evade",
-        "34": "Evade Recover",
-        "35": "Televade",
-        "36": "Stop",
-        "37": "Sleep",
-        "38": "Wake",
-        "39": "Cancel Frame",
-        "40": "Init Blast",
-        "41": "GG Pause",
-        "42": "GG Music"
-    },
-    "26": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Teleport",
-        "4": "Tele Line",
-        "5": "Tele Away",
-        "6": "Pause",
-        "7": "Away Valid?",
-        "8": "Tele Top Y",
-        "9": "Tele Spinner X",
-        "10": "After Tele",
-        "11": "HS Summon",
-        "12": "HS Orb",
-        "13": "HS Dir",
-        "14": "HS Right",
-        "15": "HS Left",
-        "16": "HS Stop",
-        "17": "HS Tele Out",
-        "18": "HS Ret Left",
-        "19": "Hs Ret Right",
-        "20": "Reactivate",
-        "21": "HS Dissipate",
-        "22": "Tele Charge",
-        "23": "Charge Dir",
-        "24": "Charge Left",
-        "25": "Charge Right",
-        "26": "Charge Stop",
-        "27": "Tele Bot Y",
-        "28": "Set Shots",
-        "29": "Shot Antic",
-        "30": "Shot",
-        "31": "Tele Shoot",
-        "32": "Attack Choice",
-        "33": "Next?",
-        "34": "Damaged Idle",
-        "35": "Set Idle Timer",
-        "36": "Shoot Valid?",
-        "37": "Tele Quake",
-        "38": "TeleportQ",
-        "39": "Tele Line Q",
-        "40": "Quake Antic",
-        "41": "Quake Down",
-        "42": "Quake Land",
-        "43": "Re Pos",
-        "44": "Quake Waves",
-        "45": "Damage Tele Away",
-        "46": "Attack Instead",
-        "47": "Charge Antic",
-        "48": "Fakeout?",
-        "49": "Fake Down",
-        "50": "Reset",
-        "51": "Stun Init",
-        "52": "Stun L",
-        "53": "Stun R",
-        "54": "Stun Start 1",
-        "55": "Stun Start 2",
-        "56": "Stunned",
-        "57": "Stun Reset",
-        "58": "Stun Hit",
-        "59": "Stun Hit L",
-        "60": "Stun Hit R",
-        "61": "Sleep",
-        "62": "Start Arena",
-        "63": "Silhouette Rise",
-        "64": "Silhouette Summon",
-        "65": "Set Entry Point",
-        "66": "Teleport In",
-        "67": "Roar",
-        "68": "Roar End",
-        "69": "Encountered?",
-        "70": "Quick Start",
-        "71": "GG Pause",
-        "72": "Set Entry Point GG",
-        "73": "Music"
-    },
-    "27": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Teleport",
-        "4": "Tele Line",
-        "5": "Tele Away",
-        "6": "Pause",
-        "7": "Away Valid?",
-        "8": "Tele Top Y",
-        "9": "Tele Spinner X",
-        "10": "After Tele",
-        "11": "HS Summon",
-        "12": "HS Orb",
-        "13": "HS Dir",
-        "14": "HS Right",
-        "15": "HS Left",
-        "16": "HS Stop",
-        "17": "HS Tele Out",
-        "18": "HS Ret Left",
-        "19": "Hs Ret Right",
-        "20": "Reactivate",
-        "21": "HS Dissipate",
-        "22": "Tele Charge",
-        "23": "Charge Dir",
-        "24": "Charge Left",
-        "25": "Charge Right",
-        "26": "Charge Stop",
-        "27": "Tele Bot Y",
-        "28": "Set Shots",
-        "29": "Shot Antic",
-        "30": "Shot",
-        "31": "Tele Shoot",
-        "32": "Attack Choice",
-        "33": "Next?",
-        "34": "Damaged Idle",
-        "35": "Set Idle Timer",
-        "36": "Shoot Valid?",
-        "37": "Tele Quake",
-        "38": "TeleportQ",
-        "39": "Tele Line Q",
-        "40": "Quake Antic",
-        "41": "Quake Down",
-        "42": "Quake Land",
-        "43": "Re Pos",
-        "44": "Quake Waves",
-        "45": "Damage Tele Away",
-        "46": "Attack Instead",
-        "47": "Charge Antic",
-        "48": "Fakeout?",
-        "49": "Fake Down",
-        "50": "Reset",
-        "51": "Stun Init",
-        "52": "Stun L",
-        "53": "Stun R",
-        "54": "Stun Start 1",
-        "55": "Stun Start 2",
-        "56": "Stunned",
-        "57": "Stun Reset",
-        "58": "Stun Hit",
-        "59": "Stun Hit L",
-        "60": "Stun Hit R",
-        "61": "Sleep",
-        "62": "Set Entry Point",
-        "63": "Teleport In",
-        "64": "Roar",
-        "65": "Roar End",
-        "66": "Encountered?",
-        "67": "Quick Start",
-        "68": "Music",
-        "69": "GG Enter"
-    },
-    "28": {
-        "1": "Init",
-        "2": "Idle",
-        "3": "Dive In 1",
-        "4": "Dive In 2",
-        "5": "Underground",
-        "6": "Erupt Tunneling",
-        "7": "Tunneling L",
-        "8": "Tunneling R",
-        "9": "Erupt Antic",
-        "10": "Erupt Out",
-        "11": "Erupt Fall",
-        "12": "Erupt Land",
-        "13": "Set Min X",
-        "14": "Set Max X",
-        "15": "Throw Antic 1",
-        "16": "Set Throws",
-        "17": "Throw 1",
-        "18": "Set Throw Speed",
-        "19": "Keep Throwing?",
-        "20": "Throw Antic 2",
-        "21": "Throw Antic 3",
-        "22": "RJ Set",
-        "23": "After Throw?",
-        "24": "Roll Speed",
-        "25": "RJ Antic",
-        "26": "RJ Launch",
-        "27": "RJ In Air",
-        "28": "RJ Bounce",
-        "29": "RJ Wall",
-        "30": "RJ Unroll",
-        "31": "RJ Speed Adjust",
-        "32": "TD Set",
-        "33": "Dolph Dir",
-        "34": "Dolph Antic",
-        "35": "Diving",
-        "36": "Dolph Dives",
-        "37": "Repeat?",
-        "38": "Dolphin Recover",
-        "39": "DT Set",
-        "40": "To Dolph Pause",
-        "41": "Timer",
-        "42": "Evade Check",
-        "43": "Evade Dir",
-        "44": "Evade Start",
-        "45": "Evade Ball",
-        "46": "Evade Recover",
-        "47": "Will Evade?",
-        "48": "Reset Evade",
-        "49": "Stun Set",
-        "50": "Stun Launch",
-        "51": "Stun In Air",
-        "52": "Stun Land",
-        "53": "Stun Recover",
-        "54": "Throw 2",
-        "55": "Move Choice",
-        "56": "Sleep",
-        "57": "Wake",
-        "58": "First?",
-        "59": "Erupt Out First",
-        "60": "Roar?",
-        "61": "Roar End",
-        "62": "Set Rage",
-        "63": "Erupt Antic R",
-        "64": "Rage In",
-        "65": "Rage?",
-        "66": "Rage Roar",
-        "67": "Quaked Out",
-        "68": "Ball Hit Up",
-        "69": "Ball Hit Left",
-        "70": "Ball Hit Right",
-        "71": "Roll Voice",
-        "72": "Stop Voice",
-        "73": "DO Intro?",
-        "74": "Rage HP",
-        "75": "GG Pause"
-    }
+# boss_id -> state names; state id i is at index i - 1 (ids are noted in comments)
+BOSS_FSM_STATES: dict[int, list[str]] = {
+    1: [  # Gruz Mother
+        "Sleep",  # 1
+        "Init",  # 2
+        "Wake",  # 3
+        "Fly",  # 4
+        "Buzz",  # 5
+        "Super Choose",  # 6
+        "Charge Antic",  # 7
+        "Charge",  # 8
+        "Charge Recover L",  # 9
+        "Super End",  # 10
+        "Recover End",  # 11
+        "Charge Recover D",  # 12
+        "Charge Recover R",  # 13
+        "Charge Recover U",  # 14
+        "Slam Antic",  # 15
+        "Check Direction",  # 16
+        "Go Left",  # 17
+        "Go Right",  # 18
+        "Launch Up",  # 19
+        "Flying",  # 20
+        "Turn Left",  # 21
+        "Launch Down",  # 22
+        "Turn Right",  # 23
+        "Slam Down",  # 24
+        "Slam Up",  # 25
+        "Slam End",  # 26
+        "Invincible",  # 27
+        "GG Boss Wake",  # 28
+        "Wake Sound",  # 29
+        "GG Extra Pause",  # 30
+    ],
+    2: [  # Vengefly King
+        "Init",  # 1
+        "Intro Roar Antic",  # 2
+        "Intro Roar Left",  # 3
+        "Idle",  # 4
+        "Lurk",  # 5
+        "Choose Attack",  # 6
+        "Swoop Antic",  # 7
+        "Swoop L",  # 8
+        "Swoop Direction",  # 9
+        "Swoop R",  # 10
+        "Swoop Rise",  # 11
+        "Summon Antic",  # 12
+        "Check Dir",  # 13
+        "Roar Left",  # 14
+        "Roar Right",  # 15
+        "Summon",  # 16
+        "Roar End",  # 17
+        "Swoop In",  # 18
+        "Col Music",  # 19
+        "Set GG",  # 20
+        "Title?",  # 21
+        "GG Summon",  # 22
+        "Check Dir 2",  # 23
+        "Intro Roar Right",  # 24
+        "Check Summon",  # 25
+        "Check Summon GG",  # 26
+        "Wait Frame",  # 27
+    ],
+    3: [  # Brooding Mawlek
+        "Init",  # 1
+        "Dormant",  # 2
+        "Wake",  # 3
+        "Wake Jump",  # 4
+        "Wake In Air",  # 5
+        "Wake Land",  # 6
+        "Wake Roar",  # 7
+        "Start",  # 8
+        "Roar End",  # 9
+        "Idle",  # 10
+        "Super Ready",  # 11
+        "Super Select",  # 12
+        "Super Spit",  # 13
+        "Shoot",  # 14
+        "Detect Hero Pos",  # 15
+        "L",  # 16
+        "R",  # 17
+        "Super Cooldown",  # 18
+        "Super Jump",  # 19
+        "Detect Hero Pos 2",  # 20
+        "L 2",  # 21
+        "R 2",  # 22
+        "Detect Hero Pos 3",  # 23
+        "L 3",  # 24
+        "R 3",  # 25
+        "In Air",  # 26
+        "Land",  # 27
+        "Jump",  # 28
+        "L 4",  # 29
+        "R 4",  # 30
+        "In Air 2",  # 31
+        "Land 2",  # 32
+        "Jump 2",  # 33
+        "Repeat Check",  # 34
+        "Pause",  # 35
+        "Set Repeater",  # 36
+        "Music",  # 37
+        "Aim Return",  # 38
+        "GG Wake",  # 39
+        "Title",  # 40
+    ],
+    4: [  # False Knight
+        "Init",  # 1
+        "Idle",  # 2
+        "Turn R",  # 3
+        "Turn L",  # 4
+        "Move Choice",  # 5
+        "Jump Antic",  # 6
+        "Jump",  # 7
+        "Fall",  # 8
+        "Land",  # 9
+        "Determine Jump",  # 10
+        "Random",  # 11
+        "Towards",  # 12
+        "Random Left",  # 13
+        "Random Right",  # 14
+        "JA Antic",  # 15
+        "JA Check Hero Pos",  # 16
+        "JA Right",  # 17
+        "JA Left",  # 18
+        "JA Jump",  # 19
+        "JA Hit",  # 20
+        "JA Recoil",  # 21
+        "JA Recoil 2",  # 22
+        "JA End",  # 23
+        "Rise",  # 24
+        "JA Rise",  # 25
+        "JA Fall",  # 26
+        "S Check Hero Pos",  # 27
+        "S Right",  # 28
+        "S Left",  # 29
+        "S Antic",  # 30
+        "S Jump",  # 31
+        "S Rise",  # 32
+        "S Fall",  # 33
+        "S Land",  # 34
+        "S Attack Antic",  # 35
+        "S Attack",  # 36
+        "S Attack Recover",  # 37
+        "Run Antic",  # 38
+        "Run",  # 39
+        "State 1",  # 40
+        "Stun Start",  # 41
+        "Check Direction",  # 42
+        "Stun Turn L",  # 43
+        "Stun Turn R",  # 44
+        "Stun In Air",  # 45
+        "Stun Land",  # 46
+        "Roll End",  # 47
+        "Open Uuup",  # 48
+        "Recover",  # 49
+        "Idle Pause",  # 50
+        "Rage Jump Antic",  # 51
+        "Jump 2",  # 52
+        "Rise 2",  # 53
+        "Fall 2",  # 54
+        "State 2",  # 55
+        "R Attack Antic",  # 56
+        "Rage",  # 57
+        "Turn",  # 58
+        "Dormant",  # 59
+        "Opened",  # 60
+        "Hit",  # 61
+        "Rage End",  # 62
+        "Rage Begin",  # 63
+        "Slam",  # 64
+        "Rage Slam",  # 65
+        "Rage Check",  # 66
+        "Floor Crack",  # 67
+        "Floor Crack?",  # 68
+        "Anim End",  # 69
+        "Stun Fail",  # 70
+        "JA Jump 2",  # 71
+        "JA Hit 2",  # 72
+        "JA Rise 2",  # 73
+        "JA Fall 2",  # 74
+        "JA Antic 2",  # 75
+        "Floor Break",  # 76
+        "Death Land",  # 77
+        "JA Slam",  # 78
+        "Death Open",  # 79
+        "Opened 2",  # 80
+        "Hit 2",  # 81
+        "Death Anim Start",  # 82
+        "Steam",  # 83
+        "Blow",  # 84
+        "Ready",  # 85
+        "Death Head Land",  # 86
+        "Cough",  # 87
+        "Start Fall",  # 88
+        "Rubble End",  # 89
+        "First Idle",  # 90
+        "Check",  # 91
+        "Decrement Battle Enemies",  # 92
+        "Land Noise",  # 93
+        "Music",  # 94
+        "Row Check",  # 95
+        "Voice?",  # 96
+        "Voice? 2",  # 97
+        "To Phase 2",  # 98
+        "To Phase 3",  # 99
+        "Particle Pause",  # 100
+        "Particle End",  # 101
+        "Walls Check",  # 102
+        "Random R",  # 103
+        "Random L",  # 104
+        "Walls Check 2",  # 105
+        "Check Jump Dir",  # 106
+        "Raycast L",  # 107
+        "Raycast R",  # 108
+        "Pause Short",  # 109
+        "Pause Long",  # 110
+        "Open Map Shop and Journal",  # 111
+        "Esc Jump Antic",  # 112
+        "Esc Jump",  # 113
+        "Esc Rise",  # 114
+        "Esc Fall",  # 115
+        "Esc Land",  # 116
+        "Escaped Idle",  # 117
+        "Beta End Event",  # 118
+        "Barrels?",  # 119
+        "Head Reset",  # 120
+        "Head Frame",  # 121
+        "Check If GG",  # 122
+        "Boss Death Sting",  # 123
+        "Set Head Facing",  # 124
+        "Chinese?",  # 125
+        "Death Head Land Chinese",  # 126
+        "State 3",  # 127
+    ],
+    5: [  # Failed Champion
+        "Init",  # 1
+        "Idle",  # 2
+        "Turn R",  # 3
+        "Turn L",  # 4
+        "Move Choice",  # 5
+        "Jump Antic",  # 6
+        "Jump",  # 7
+        "Fall",  # 8
+        "Land",  # 9
+        "Determine Jump",  # 10
+        "Random",  # 11
+        "Towards",  # 12
+        "Random Left",  # 13
+        "Random Right",  # 14
+        "JA Antic",  # 15
+        "JA Check Hero Pos",  # 16
+        "JA Right",  # 17
+        "JA Left",  # 18
+        "JA Jump",  # 19
+        "JA Hit",  # 20
+        "JA Recoil",  # 21
+        "JA Recoil 2",  # 22
+        "JA End",  # 23
+        "Rise",  # 24
+        "JA Rise",  # 25
+        "JA Fall",  # 26
+        "S Check Hero Pos",  # 27
+        "S Right",  # 28
+        "S Left",  # 29
+        "S Antic",  # 30
+        "S Jump",  # 31
+        "S Rise",  # 32
+        "S Fall",  # 33
+        "S Land",  # 34
+        "S Attack Antic",  # 35
+        "S Attack",  # 36
+        "S Attack Recover",  # 37
+        "Run Antic",  # 38
+        "Run",  # 39
+        "State 1",  # 40
+        "Stun Start",  # 41
+        "Check Direction",  # 42
+        "Stun Turn L",  # 43
+        "Stun Turn R",  # 44
+        "Stun In Air",  # 45
+        "Stun Land",  # 46
+        "Roll End",  # 47
+        "Open Uuup",  # 48
+        "Recover",  # 49
+        "Idle Pause",  # 50
+        "Rage Jump Antic",  # 51
+        "Jump 2",  # 52
+        "Rise 2",  # 53
+        "Fall 2",  # 54
+        "State 2",  # 55
+        "R Attack Antic",  # 56
+        "Rage",  # 57
+        "Turn",  # 58
+        "Dormant",  # 59
+        "Opened",  # 60
+        "Hit",  # 61
+        "Rage End",  # 62
+        "Rage Begin",  # 63
+        "Slam",  # 64
+        "Rage Slam",  # 65
+        "Rage Check",  # 66
+        "Floor Crack",  # 67
+        "Floor Crack?",  # 68
+        "Anim End",  # 69
+        "Stun Fail",  # 70
+        "JA Jump 2",  # 71
+        "JA Hit 2",  # 72
+        "JA Rise 2",  # 73
+        "JA Fall 2",  # 74
+        "JA Antic 2",  # 75
+        "Floor Break",  # 76
+        "Death Land",  # 77
+        "JA Slam",  # 78
+        "Death Open",  # 79
+        "Opened 2",  # 80
+        "Hit 2",  # 81
+        "Death Anim Start",  # 82
+        "Steam",  # 83
+        "Blow",  # 84
+        "Ready",  # 85
+        "Death Head Land",  # 86
+        "Cough",  # 87
+        "Start Fall",  # 88
+        "Rubble End",  # 89
+        "First Idle",  # 90
+        "Check",  # 91
+        "Decrement Battle Enemies",  # 92
+        "Land Noise",  # 93
+        "Steam 2",  # 94
+        "Init 2",  # 95
+        "Music",  # 96
+        "Row Check",  # 97
+        "Voice?",  # 98
+        "Voice? 2",  # 99
+        "To Phase 2",  # 100
+        "To Phase 3",  # 101
+        "Particle Pause",  # 102
+        "Particle End",  # 103
+        "Walls Check",  # 104
+        "Random R",  # 105
+        "Random L",  # 106
+        "Walls Check 2",  # 107
+        "Check Jump Dir",  # 108
+        "Raycast L",  # 109
+        "Raycast R",  # 110
+        "Pause Short",  # 111
+        "Pause Long",  # 112
+        "Set PlayerData",  # 113
+        "Wait for Hero",  # 114
+        "Check GG",  # 115
+        "Dream Return",  # 116
+        "Set Head Facing",  # 117
+    ],
+    6: [  # Hornet Protector
+        "Init",  # 1
+        "Idle",  # 2
+        "GDash Antic",  # 3
+        "G Dash",  # 4
+        "GDash Recover1",  # 5
+        "GDash Recover2",  # 6
+        "Pause",  # 7
+        "Jump Antic",  # 8
+        "Aim Jump",  # 9
+        "Jump",  # 10
+        "In Air",  # 11
+        "Land",  # 12
+        "Re Aim",  # 13
+        "Set ADash",  # 14
+        "ADash Antic",  # 15
+        "A Dash",  # 16
+        "Land Y",  # 17
+        "Fire",  # 18
+        "Firing R",  # 19
+        "Firing L",  # 20
+        "Hit Roof",  # 21
+        "Wall L",  # 22
+        "Jump R",  # 23
+        "Wall R",  # 24
+        "Jump L",  # 25
+        "Sphere Antic G",  # 26
+        "Sphere",  # 27
+        "Sphere Recover",  # 28
+        "Set Jump Only",  # 29
+        "Set Sphere A",  # 30
+        "Sphere Antic A",  # 31
+        "Sphere A",  # 32
+        "Sphere Recover A",  # 33
+        "Sphere A End",  # 34
+        "Aim Sphere Jump",  # 35
+        "Throw Antic",  # 36
+        "Throw",  # 37
+        "Thrown",  # 38
+        "Throw Recover",  # 39
+        "Lock?",  # 40
+        "Lock L",  # 41
+        "Lock R",  # 42
+        "Lock UL",  # 43
+        "Lock UR",  # 44
+        "Flip?",  # 45
+        "Run",  # 46
+        "Move Choice A",  # 47
+        "Hard Land",  # 48
+        "G Sphere?",  # 49
+        "Can Throw?",  # 50
+        "Move Choice B",  # 51
+        "Evade Antic",  # 52
+        "Evade",  # 53
+        "Dmg Response",  # 54
+        "Dmg Idle",  # 55
+        "Run Away?",  # 56
+        "Evade Land",  # 57
+        "After Evade",  # 58
+        "Stun Start",  # 59
+        "Stun Air",  # 60
+        "Stun Land",  # 61
+        "Stun Recover",  # 62
+        "Inert",  # 63
+        "Wake",  # 64
+        "Do Sphere?",  # 65
+        "Refight Ready",  # 66
+        "Refight Wake",  # 67
+        "Escalation",  # 68
+        "Flourish",  # 69
+        "Run Antic",  # 70
+        "Set Scale",  # 71
+        "Music",  # 72
+        "GG Music",  # 73
+        "GG Intro 1",  # 74
+        "GG Fall",  # 75
+        "GG Land",  # 76
+        "GG Reset",  # 77
+    ],
+    7: [  # Hornet Sentinel
+        "Init",  # 1
+        "Idle",  # 2
+        "GDash Antic",  # 3
+        "G Dash",  # 4
+        "GDash Recover1",  # 5
+        "GDash Recover2",  # 6
+        "Pause",  # 7
+        "Jump Antic",  # 8
+        "Aim Jump",  # 9
+        "Jump",  # 10
+        "In Air",  # 11
+        "Land",  # 12
+        "Re Aim",  # 13
+        "Set ADash",  # 14
+        "ADash Antic",  # 15
+        "A Dash",  # 16
+        "Land Y",  # 17
+        "Fire",  # 18
+        "Firing R",  # 19
+        "Firing L",  # 20
+        "Hit Roof",  # 21
+        "Wall L",  # 22
+        "Jump R",  # 23
+        "Wall R",  # 24
+        "Jump L",  # 25
+        "Sphere Antic G",  # 26
+        "Sphere",  # 27
+        "Sphere Recover",  # 28
+        "Set Jump Only",  # 29
+        "Set Sphere A",  # 30
+        "Sphere Antic A",  # 31
+        "Sphere A",  # 32
+        "Sphere Recover A",  # 33
+        "Sphere A End",  # 34
+        "Aim Sphere Jump",  # 35
+        "Throw Antic",  # 36
+        "Throw",  # 37
+        "Thrown",  # 38
+        "Throw Recover",  # 39
+        "Lock?",  # 40
+        "Lock L",  # 41
+        "Lock R",  # 42
+        "Lock UL",  # 43
+        "Lock UR",  # 44
+        "Flip?",  # 45
+        "Run",  # 46
+        "Move Choice A",  # 47
+        "Hard Land",  # 48
+        "G Sphere?",  # 49
+        "Can Throw?",  # 50
+        "Move Choice B",  # 51
+        "Evade Antic",  # 52
+        "Evade",  # 53
+        "Dmg Response",  # 54
+        "Dmg Idle",  # 55
+        "Run Away?",  # 56
+        "Evade Land",  # 57
+        "After Evade",  # 58
+        "Stun Start",  # 59
+        "Stun Air",  # 60
+        "Stun Land",  # 61
+        "Stun Recover",  # 62
+        "Inert",  # 63
+        "Wake",  # 64
+        "Do Sphere?",  # 65
+        "Refight Ready",  # 66
+        "Refight Wake",  # 67
+        "Escalation",  # 68
+        "Counter Antic",  # 69
+        "Counter Stance",  # 70
+        "Counter End",  # 71
+        "Ev Or Counter",  # 72
+        "CA Antic",  # 73
+        "CA 1",  # 74
+        "CA 2",  # 75
+        "CA Recover",  # 76
+        "Barb?",  # 77
+        "Barb Antic",  # 78
+        "Barb Throw",  # 79
+        "Barb Recover",  # 80
+        "Flourish",  # 81
+        "Flourish?",  # 82
+        "GG Pause",  # 83
+        "Music",  # 84
+        "Music (not GG)",  # 85
+    ],
+    8: [  # Massive Moss Charger
+        "Init",  # 1
+        "Hidden",  # 2
+        "Emerge Pause",  # 3
+        "Left or Right?",  # 4
+        "Emerge Right",  # 5
+        "Emerge Left",  # 6
+        "Emerge",  # 7
+        "Charge",  # 8
+        "Pause",  # 9
+        "Pause 2",  # 10
+        "Submerge 1",  # 11
+        "Submerge CD",  # 12
+        "Hero Beyond?",  # 13
+        "Play Range",  # 14
+        "Detach",  # 15
+        "Submerge 2",  # 16
+        "Submerge 3",  # 17
+        "Submerge 4",  # 18
+        "Hit Right",  # 19
+        "Hit Left",  # 20
+        "Sleep",  # 21
+        "Shake",  # 22
+        "Roar",  # 23
+        "Roar End",  # 24
+        "Attack Choice",  # 25
+        "Leap Start",  # 26
+        "Leap Launch",  # 27
+        "In Air",  # 28
+        "Land",  # 29
+        "Start Pause",  # 30
+        "Dormant",  # 31
+        "GG Pause",  # 32
+        "Title?",  # 33
+        "Music",  # 34
+        "Music 2",  # 35
+    ],
+    9: [  # Flukemarm
+        "Init",  # 1
+        "Idle",  # 2
+        "Rage",  # 3
+        "Dead",  # 4
+        "Check Spawn",  # 5
+        "Select Point",  # 6
+        "Spawn",  # 7
+        "Play Idle",  # 8
+        "Roar Start",  # 9
+        "Roar End",  # 10
+        "Select Point 2",  # 11
+        "Spawn 2",  # 12
+        "Repick",  # 13
+        "Spawn 2 Cancel",  # 14
+        "Spawn 1 Cancel",  # 15
+        "GG?",  # 16
+        "Delay Roar",  # 17
+    ],
+    10: [  # Mantis Lords
+        "Init",  # 1
+        "Idle",  # 2
+        "Dash Dir",  # 3
+        "Dash R",  # 4
+        "Dash L",  # 5
+        "Dash Arrive",  # 6
+        "Dash Antic",  # 7
+        "Dash Attack",  # 8
+        "End R",  # 9
+        "End L",  # 10
+        "Dash Recover",  # 11
+        "Dash Leave",  # 12
+        "Away",  # 13
+        "Sleep",  # 14
+        "Pause",  # 15
+        "Dash Hit Off",  # 16
+        "Dstab Pos",  # 17
+        "Dstab Arrive",  # 18
+        "Dstab Attack",  # 19
+        "Dstab Land",  # 20
+        "Dstab Leave",  # 21
+        "Shift?",  # 22
+        "Throw Pos",  # 23
+        "Throw R",  # 24
+        "Throw L",  # 25
+        "Throw Antic",  # 26
+        "Set Throws",  # 27
+        "Throw",  # 28
+        "Throw CD",  # 29
+        "Keep Throwing?",  # 30
+        "Wall Leave 1",  # 31
+        "Wall Leave 2",  # 32
+        "Arrive",  # 33
+        "Start Pause",  # 34
+        "Attack Choice",  # 35
+        "Sub Idle",  # 36
+        "S Throw R",  # 37
+        "S Throw L",  # 38
+        "Throw Antic 2",  # 39
+        "Set Throws 2",  # 40
+        "Throw 2",  # 41
+        "Throw CD 2",  # 42
+        "Keep Throwing? 2",  # 43
+        "Arrive 2",  # 44
+        "Throw Pos 2",  # 45
+        "Arrive Pause",  # 46
+        "Leave Pause",  # 47
+        "Throw UD?",  # 48
+        "Pos UD",  # 49
+        "Pos DU",  # 50
+        "After Throw Pause",  # 51
+        "Wide Throw L",  # 52
+        "Wide Throw R",  # 53
+        "Narrow Throw L",  # 54
+        "Narrow Throw R",  # 55
+        "High Check LR",  # 56
+        "Shift Y?",  # 57
+        "Short GG",  # 58
+        "Short GG 2",  # 59
+    ],
+    11: [  # Sisters of Battle
+        "Init",  # 1
+        "Idle",  # 2
+        "Dash Dir",  # 3
+        "Dash R",  # 4
+        "Dash L",  # 5
+        "Dash Arrive",  # 6
+        "Dash Antic",  # 7
+        "Dash Attack",  # 8
+        "End R",  # 9
+        "End L",  # 10
+        "Dash Recover",  # 11
+        "Dash Leave",  # 12
+        "Away",  # 13
+        "Sleep",  # 14
+        "Pause",  # 15
+        "Dash Hit Off",  # 16
+        "Dstab Pos",  # 17
+        "Dstab Arrive",  # 18
+        "Dstab Attack",  # 19
+        "Dstab Land",  # 20
+        "Dstab Leave",  # 21
+        "Shift?",  # 22
+        "Throw Pos",  # 23
+        "Throw R",  # 24
+        "Throw L",  # 25
+        "Throw Antic",  # 26
+        "Set Throws",  # 27
+        "Throw",  # 28
+        "Throw CD",  # 29
+        "Keep Throwing?",  # 30
+        "Wall Leave 1",  # 31
+        "Wall Leave 2",  # 32
+        "Arrive",  # 33
+        "Start Pause",  # 34
+        "Attack Choice",  # 35
+        "Sub Idle",  # 36
+        "S Throw R",  # 37
+        "S Throw L",  # 38
+        "Throw Antic 2",  # 39
+        "Set Throws 2",  # 40
+        "Throw 2",  # 41
+        "Throw CD 2",  # 42
+        "Keep Throwing? 2",  # 43
+        "Arrive 2",  # 44
+        "Throw Pos 2",  # 45
+        "Arrive Pause",  # 46
+        "Leave Pause",  # 47
+        "Throw UD?",  # 48
+        "Pos UD",  # 49
+        "Pos DU",  # 50
+        "After Throw Pause",  # 51
+        "Wide Throw L",  # 52
+        "Wide Throw R",  # 53
+        "Narrow Throw L",  # 54
+        "Narrow Throw R",  # 55
+        "High Check LR",  # 56
+        "Shift Y?",  # 57
+        "Short GG",  # 58
+        "Short GG 2",  # 59
+    ],
+    12: [  # Oblobbles
+        "Wait",  # 1
+        "Attack Antic",  # 2
+        "Attack",  # 3
+        "CD",  # 4
+        "Attack Antic 2",  # 5
+        "Sleep",  # 6
+        "Attack 2",  # 7
+        "Attack Check",  # 8
+        "Init",  # 9
+        "Shoot Anim",  # 10
+        "Rage Wait",  # 11
+        "R Antic",  # 12
+        "Raging",  # 13
+    ],
+    13: [  # Hive Knight
+        "Init",  # 1
+        "Sleep",  # 2
+        "Wake",  # 3
+        "Idle",  # 4
+        "Stun Start",  # 5
+        "Stun Air",  # 6
+        "Stun Land",  # 7
+        "Stun Recover",  # 8
+        "Dash Antic",  # 9
+        "Dash",  # 10
+        "Dash Recover",  # 11
+        "Dash End",  # 12
+        "Jump Antic",  # 13
+        "Aim Jump",  # 14
+        "Jump",  # 15
+        "In Air",  # 16
+        "Land",  # 17
+        "TeleOut 1",  # 18
+        "TeleOut 2",  # 19
+        "Tele Pos",  # 20
+        "Aim R",  # 21
+        "Aim L",  # 22
+        "TeleIn 1",  # 23
+        "TeleIn 2",  # 24
+        "Slash 1",  # 25
+        "Slash 2",  # 26
+        "Slash Recover",  # 27
+        "Start Fall",  # 28
+        "Attack Choice",  # 29
+        "Glob Antic 1",  # 30
+        "Glob Strike",  # 31
+        "Glob Recover",  # 32
+        "Glob Antic 2",  # 33
+        "Bee Roar Antic",  # 34
+        "Roar",  # 35
+        "Roar Recover",  # 36
+        "Phase Check",  # 37
+        "Phase 1",  # 38
+        "Phase 2",  # 39
+        "Phase 3",  # 40
+        "Fall",  # 41
+        "Intro Land",  # 42
+        "Intro",  # 43
+        "Intro End",  # 44
+        "Activate",  # 45
+        "Roar Cooldown",  # 46
+        "Tele Pause",  # 47
+        "Music",  # 48
+        "Variant",  # 49
+    ],
+    14: [  # Broken Vessel
+        "Init",  # 1
+        "Pause",  # 2
+        "Sleep",  # 3
+        "Start Pause",  # 4
+        "Rumble Start",  # 5
+        "Spawning 1",  # 6
+        "Spawning 2",  # 7
+        "Spawning 3",  # 8
+        "Spawning 4",  # 9
+        "Check Final",  # 10
+        "Check",  # 11
+        "Stop Spawning",  # 12
+        "Roar Start",  # 13
+        "Roar",  # 14
+        "Roar End",  # 15
+        "Idle",  # 16
+        "Set Dstab",  # 17
+        "Jump",  # 18
+        "In Air",  # 19
+        "Jump Antic",  # 20
+        "Land",  # 21
+        "Aim Jump",  # 22
+        "Aim Dstab",  # 23
+        "Dstab Antic",  # 24
+        "Dstab Fall",  # 25
+        "Dstab Land",  # 26
+        "Attack Choice",  # 27
+        "Jump Check",  # 28
+        "Dash Antic",  # 29
+        "Dash Attack",  # 30
+        "Dash Recover",  # 31
+        "Dash Attack 2",  # 32
+        "Dash Attack 3",  # 33
+        "Dstab Recover",  # 34
+        "Ohead Antic",  # 35
+        "Ohead Slashing",  # 36
+        "Ohead Recover",  # 37
+        "Evade Antic",  # 38
+        "Evade Dash",  # 39
+        "Evade Recover",  # 40
+        "Shake Antic",  # 41
+        "Shaking Start",  # 42
+        "Shaking Spawn",  # 43
+        "Dash Antic 2",  # 44
+        "Dash Antic 3",  # 45
+        "Air Dash?",  # 46
+        "Fall",  # 47
+        "Set Height",  # 48
+        "Set Counter",  # 49
+        "Damage Response",  # 50
+        "To Attack?",  # 51
+        "Jump Antic 2",  # 52
+        "Aim Jump 2",  # 53
+        "Jump 2",  # 54
+        "In Air 2",  # 55
+        "Land 2",  # 56
+        "Shake End",  # 57
+        "First Counter",  # 58
+        "Shake?",  # 59
+        "Inc Dstab",  # 60
+        "Stun Start",  # 61
+        "Stunned",  # 62
+        "Stun Recover",  # 63
+        "Waiting",  # 64
+        "Repause",  # 65
+        "Close Gates",  # 66
+        "Intro Fall",  # 67
+        "Intro Land",  # 68
+        "Music",  # 69
+        "Set Pos",  # 70
+        "GG Wait",  # 71
+    ],
+    15: [  # Lost Kin
+        "Init",  # 1
+        "Pause",  # 2
+        "Roar Start",  # 3
+        "Roar",  # 4
+        "Roar End",  # 5
+        "Idle",  # 6
+        "Set Dstab",  # 7
+        "Jump",  # 8
+        "In Air",  # 9
+        "Jump Antic",  # 10
+        "Land",  # 11
+        "Aim Jump",  # 12
+        "Aim Dstab",  # 13
+        "Dstab Antic",  # 14
+        "Dstab Fall",  # 15
+        "Dstab Land",  # 16
+        "Attack Choice",  # 17
+        "Jump Check",  # 18
+        "Dash Antic",  # 19
+        "Dash Attack",  # 20
+        "Dash Recover",  # 21
+        "Dash Attack 2",  # 22
+        "Dash Attack 3",  # 23
+        "Dstab Recover",  # 24
+        "Ohead Antic",  # 25
+        "Ohead Slashing",  # 26
+        "Ohead Recover",  # 27
+        "Evade Antic",  # 28
+        "Evade Dash",  # 29
+        "Evade Recover",  # 30
+        "Shake Antic",  # 31
+        "Shaking Start",  # 32
+        "Shaking Spawn",  # 33
+        "Dash Antic 2",  # 34
+        "Dash Antic 3",  # 35
+        "Air Dash?",  # 36
+        "Fall",  # 37
+        "Set Height",  # 38
+        "Set Counter",  # 39
+        "Damage Response",  # 40
+        "To Attack?",  # 41
+        "Jump Antic 2",  # 42
+        "Aim Jump 2",  # 43
+        "Jump 2",  # 44
+        "In Air 2",  # 45
+        "Land 2",  # 46
+        "Shake End",  # 47
+        "First Counter",  # 48
+        "Shake?",  # 49
+        "Inc Dstab",  # 50
+        "Stun Start",  # 51
+        "Stunned",  # 52
+        "Stun Recover",  # 53
+        "Waiting",  # 54
+        "Repause",  # 55
+        "Close Gates",  # 56
+        "Intro Fall",  # 57
+        "Intro Land",  # 58
+        "Set X",  # 59
+        "Music",  # 60
+        "Set X GG",  # 61
+    ],
+    16: [  # Nosk
+        "Init",  # 1
+        "Idle",  # 2
+        "Charge Init",  # 3
+        "Charge R",  # 4
+        "Wait",  # 5
+        "Jump Init",  # 6
+        "Jump",  # 7
+        "Jump Land",  # 8
+        "Jump Wait",  # 9
+        "Roar Init",  # 10
+        "Roar Loop",  # 11
+        "Roar Finish",  # 12
+        "Hollow Idle",  # 13
+        "Trans 1",  # 14
+        "Trans 2",  # 15
+        "Trans 3",  # 16
+        "Trans 4",  # 17
+        "Trans 5",  # 18
+        "Roar End",  # 19
+        "Jump Antic",  # 20
+        "Launch",  # 21
+        "Aim Jump",  # 22
+        "Rising",  # 23
+        "Falling",  # 24
+        "Land 2",  # 25
+        "Face L",  # 26
+        "Face R",  # 27
+        "Charge Start",  # 28
+        "Charge L",  # 29
+        "C Antic 2",  # 30
+        "C Antic 3",  # 31
+        "Encountered",  # 32
+        "Wake",  # 33
+        "Spit Antic",  # 34
+        "Spit 1",  # 35
+        "Spit 2",  # 36
+        "Spit Recover",  # 37
+        "Spit 3",  # 38
+        "Spit 4",  # 39
+        "Spit 5",  # 40
+        "Set Spit",  # 41
+        "Idle No Spit",  # 42
+        "Roof Jump?",  # 43
+        "RS Jump Antic",  # 44
+        "RS Jump",  # 45
+        "Roof Antic",  # 46
+        "Roof Drop",  # 47
+        "Fall Antic",  # 48
+        "To Fall",  # 49
+        "Init R",  # 50
+        "Init L",  # 51
+        "GG Pause",  # 52
+        "GG Activate",  # 53
+    ],
+    17: [  # Winged Nosk
+        "Init",  # 1
+        "Idle",  # 2
+        "Choose Attack",  # 3
+        "Swoop Antic",  # 4
+        "Swoop L",  # 5
+        "Swoop Direction",  # 6
+        "Swoop R",  # 7
+        "Swoop Rise",  # 8
+        "Dormant",  # 9
+        "Set Pos",  # 10
+        "Init Velocity",  # 11
+        "Acid Roar Antic",  # 12
+        "Spit 1",  # 13
+        "Spit 2",  # 14
+        "Spit 3",  # 15
+        "Spit 4",  # 16
+        "Spit 5",  # 17
+        "Acid Roar End",  # 18
+        "Spit 6",  # 19
+        "Summon Roar",  # 20
+        "Summon Recover",  # 21
+        "Summon",  # 22
+        "Resummon",  # 23
+        "Shift Down?",  # 24
+        "HP",  # 25
+        "Choose Attack 2",  # 26
+        "Roof Antic",  # 27
+        "Roof Up",  # 28
+        "Roof Impact",  # 29
+        "Globs",  # 30
+        "Roof Return",  # 31
+    ],
+    18: [  # The Collector
+        "Init",  # 1
+        "Start Fall",  # 2
+        "Start Land",  # 3
+        "Roar",  # 4
+        "Roar End",  # 5
+        "Roar Antic",  # 6
+        "Roar Recover",  # 7
+        "Hop Start Antic",  # 8
+        "Hop Start",  # 9
+        "Hop",  # 10
+        "Hop Land",  # 11
+        "Hop Wall",  # 12
+        "Set Hops",  # 13
+        "Move Choice",  # 14
+        "Lunge Antic",  # 15
+        "Lunge Launch",  # 16
+        "Lunge Air",  # 17
+        "Lunge Swipe",  # 18
+        "Lunge Recover",  # 19
+        "Jump Antic",  # 20
+        "Jump",  # 21
+        "Roof",  # 22
+        "Summon?",  # 23
+        "Return",  # 24
+        "Slam",  # 25
+        "Spawn",  # 26
+        "Spawn Recover",  # 27
+        "Resummon Pause",  # 28
+        "Repos",  # 29
+        "Return Antic",  # 30
+        "Phase 1",  # 31
+        "Buzzer",  # 32
+        "Resummon?",  # 33
+        "Spitter",  # 34
+        "Roller",  # 35
+        "Enemy Count",  # 36
+        "Move Choice None",  # 37
+        "Stun Start",  # 38
+        "Stun Air",  # 39
+        "Stun",  # 40
+        "Stun Recover",  # 41
+        "Death Start",  # 42
+        "Stun Hit",  # 43
+        "Sleep",  # 44
+        "Music",  # 45
+    ],
+    19: [  # God Tamer
+        "Init",  # 1
+        "Idle",  # 2
+        "Move Choice",  # 3
+        "Forward",  # 4
+        "Back",  # 5
+        "Scuttle",  # 6
+        "Scuttle End",  # 7
+        "Attack Choice",  # 8
+        "RC Antic",  # 9
+        "RC Charge",  # 10
+        "RC Charging",  # 11
+        "RC Launch",  # 12
+        "RC Air",  # 13
+        "RC Land",  # 14
+        "Spit Turn?",  # 15
+        "Spit Retreat?",  # 16
+        "Spit Antic",  # 17
+        "Spit",  # 18
+        "Spit Recover",  # 19
+        "Fire Globs",  # 20
+        "Dormant",  # 21
+        "Wake",  # 22
+    ],
+    20: [  # Crystal Guardian
+        "Init",  # 1
+        "Idle",  # 2
+        "Aim",  # 3
+        "Beam Antic",  # 4
+        "Beam",  # 5
+        "Beam End",  # 6
+        "Beam Recover",  # 7
+        "CD",  # 8
+        "Facing R?",  # 9
+        "Shoot Antic",  # 10
+        "Cancel",  # 11
+        "Pause Frame",  # 12
+        "Check Facing",  # 13
+        "Sleep",  # 14
+        "Wake",  # 15
+        "Roar Start",  # 16
+        "Roar",  # 17
+        "Battle Init",  # 18
+        "Roar End",  # 19
+        "Jump Antic",  # 20
+        "Launch",  # 21
+        "Aim Jump",  # 22
+        "Rising",  # 23
+        "Falling",  # 24
+        "Land",  # 25
+        "Choice",  # 26
+        "Hero Range?",  # 27
+        "Range Check",  # 28
+        "Face Hero",  # 29
+        "Aim Left",  # 30
+        "Aim Right",  # 31
+        "First Idle",  # 32
+        "Deparents",  # 33
+        "Face Knight",  # 34
+        "Clamps",  # 35
+        "Lasers",  # 36
+        "Shoot Lasers?",  # 37
+        "First GG Move",  # 38
+    ],
+    21: [  # Enraged Guardian
+        "Init",  # 1
+        "Idle",  # 2
+        "Beam End",  # 3
+        "Beam Recover",  # 4
+        "CD",  # 5
+        "Cancel",  # 6
+        "Pause Frame",  # 7
+        "Check Facing",  # 8
+        "Wake",  # 9
+        "Roar Start",  # 10
+        "Roar",  # 11
+        "Battle Init",  # 12
+        "Roar End",  # 13
+        "Jump Antic",  # 14
+        "Launch",  # 15
+        "Aim Jump",  # 16
+        "Rising",  # 17
+        "Falling",  # 18
+        "Land",  # 19
+        "Choice",  # 20
+        "Hero Range?",  # 21
+        "First Idle",  # 22
+        "Aim 2",  # 23
+        "Beam Antic 2",  # 24
+        "Beam 2",  # 25
+        "Facing R? 2",  # 26
+        "Shoot Antic 2",  # 27
+        "Range Check 2",  # 28
+        "Face Hero 2",  # 29
+        "Aim Left 2",  # 30
+        "Aim Right 2",  # 31
+        "Face Knight",  # 32
+        "GG Wait",  # 33
+        "Laser Shoot",  # 34
+        "Laser Shoot?",  # 35
+        "First GG Move",  # 36
+    ],
+    22: [  # Uumuu
+        "Init",  # 1
+        "Idle",  # 2
+        "Attack Antic",  # 3
+        "Zapping",  # 4
+        "Gen",  # 5
+        "Choice",  # 6
+        "Attack Recover",  # 7
+        "First?",  # 8
+        "Multizap",  # 9
+        "Pattern Choice",  # 10
+        "Explode",  # 11
+        "Wounded",  # 12
+        "Recover Antic",  # 13
+        "Recover",  # 14
+        "Sleep",  # 15
+        "Wake Pause",  # 16
+        "Wake Rumble",  # 17
+        "Burst",  # 18
+        "Start",  # 19
+        "Music",  # 20
+        "Roar",  # 21
+        "Roar End",  # 22
+    ],
+    23: [  # Traitor Lord
+        "Init",  # 1
+        "Idle",  # 2
+        "Attack Antic",  # 3
+        "Attack 1",  # 4
+        "Attack Swipe",  # 5
+        "Attack Recover",  # 6
+        "Cooldown",  # 7
+        "Turn",  # 8
+        "Stop At Edge",  # 9
+        "Set Speed",  # 10
+        "Feint?",  # 11
+        "Feint",  # 12
+        "Walk",  # 13
+        "Speed Check",  # 14
+        "Active",  # 15
+        "Attack Choice",  # 16
+        "Jump Antic",  # 17
+        "Jump",  # 18
+        "DSlash Antic",  # 19
+        "DSlash",  # 20
+        "Land",  # 21
+        "Emerge Dust",  # 22
+        "Fall",  # 23
+        "Intro Land",  # 24
+        "Roar",  # 25
+        "Roar End",  # 26
+        "Roar Recover",  # 27
+        "Cloth?",  # 28
+        "Death Shift?",  # 29
+        "Shift L",  # 30
+        "Shift R",  # 31
+        "Death Ready",  # 32
+        "Shifted?",  # 33
+        "Turn?",  # 34
+        "Stab Antic",  # 35
+        "Stab",  # 36
+        "Smash Antic",  # 37
+        "Smash",  # 38
+        "Smash End",  # 39
+        "End",  # 40
+        "Journal",  # 41
+        "Steam",  # 42
+        "Ready",  # 43
+        "Blow",  # 44
+        "Sickle Antic",  # 45
+        "Sickle Throw",  # 46
+        "Throw?",  # 47
+        "Slam Antic",  # 48
+        "Slamming",  # 49
+        "Waves",  # 50
+        "Slam End",  # 51
+        "Slam?",  # 52
+        "Too Close?",  # 53
+        "Feint 2",  # 54
+        "Repeat?",  # 55
+        "Repeat",  # 56
+        "Sickle Throw Recover",  # 57
+        "Sick Throw CD",  # 58
+        "Repeat Pos Check",  # 59
+        "Check L",  # 60
+        "Check R",  # 61
+    ],
+    24: [  # Grey Prince Zote
+        "Init",  # 1
+        "Dormant",  # 2
+        "Enter 1",  # 3
+        "Enter 2",  # 4
+        "Enter 3",  # 5
+        "Roar",  # 6
+        "Roar End",  # 7
+        "Activate",  # 8
+        "Idle Start",  # 9
+        "Move Choice",  # 10
+        "Jump Antic",  # 11
+        "Jump",  # 12
+        "Aim Jump",  # 13
+        "In Air",  # 14
+        "Land Normal",  # 15
+        "Set Jumps",  # 16
+        "After Jump",  # 17
+        "Land Waves",  # 18
+        "Fall Through?",  # 19
+        "FT Through",  # 20
+        "FT Fall",  # 21
+        "FT Slam",  # 22
+        "FT Recover",  # 23
+        "Ft Waves",  # 24
+        "Charge Antic",  # 25
+        "Charge R",  # 26
+        "Charge Fall",  # 27
+        "Charge Slam",  # 28
+        "Charge Start",  # 29
+        "Charge L",  # 30
+        "Charge Through?",  # 31
+        "To CT",  # 32
+        "Charge Through",  # 33
+        "CT Dir",  # 34
+        "CT Left",  # 35
+        "CT Right",  # 36
+        "Charge Through 2",  # 37
+        "CT Dir 2",  # 38
+        "CT In L",  # 39
+        "CT In R",  # 40
+        "JS Antic",  # 41
+        "JS Aim",  # 42
+        "JS Jump",  # 43
+        "JS In Air",  # 44
+        "Stomp Antic",  # 45
+        "Stomp",  # 46
+        "Stomp Slash",  # 47
+        "Slash End",  # 48
+        "Slash Recover",  # 49
+        "Land Dir",  # 50
+        "Slash Waves R",  # 51
+        "Slash Waves L",  # 52
+        "Shift?",  # 53
+        "Shift Dir",  # 54
+        "Stomp Shift L",  # 55
+        "Stomp Shift R",  # 56
+        "Spit Antic",  # 57
+        "Spit Recover",  # 58
+        "Spit Dir",  # 59
+        "Spit L",  # 60
+        "Spit R",  # 61
+        "Respit?",  # 62
+        "Stun Start",  # 63
+        "B Roar Antic",  # 64
+        "B Roar",  # 65
+        "BR Recover",  # 66
+        "Unconstrain Dir",  # 67
+        "Unconstrain L",  # 68
+        "Unconstrain R",  # 69
+        "Stun Air",  # 70
+        "Stun",  # 71
+        "Send Event",  # 72
+        "Stand",  # 73
+        "Run",  # 74
+        "Run Antic",  # 75
+        "Run Flip",  # 76
+        "Run End",  # 77
+        "Pause",  # 78
+        "Level Check",  # 79
+        "Level 1",  # 80
+        "Set Damage",  # 81
+        "Move Level",  # 82
+        "Move Choice 1",  # 83
+        "Spit Set",  # 84
+        "Turn L",  # 85
+        "Turn R",  # 86
+        "Level 2",  # 87
+        "Move Choice 2",  # 88
+        "Level 3",  # 89
+        "Move Choice 3",  # 90
+        "4+",  # 91
+        "Enter Short",  # 92
+        "Music",  # 93
+        "GG Pause",  # 94
+    ],
+    25: [  # Soul Warrior
+        "Init",  # 1
+        "Idle",  # 2
+        "Shoot Antic",  # 3
+        "Shoot Aim",  # 4
+        "Shoot",  # 5
+        "Shoot CD",  # 6
+        "Slash Aim",  # 7
+        "Slash Antic",  # 8
+        "Dash",  # 9
+        "Slash",  # 10
+        "Slash Recover",  # 11
+        "Side Tele Aim",  # 12
+        "Tele Antic",  # 13
+        "Tele L",  # 14
+        "Tele R",  # 15
+        "Side Tele",  # 16
+        "After Side Tele",  # 17
+        "Pause",  # 18
+        "Move Decision",  # 19
+        "Can Shoot?",  # 20
+        "Tele Choice",  # 21
+        "Up Tele Aim",  # 22
+        "Up Tele",  # 23
+        "Stomp Antic",  # 24
+        "Stomp Air",  # 25
+        "Stomp Slash",  # 26
+        "Stomp Recover",  # 27
+        "Evade Check",  # 28
+        "Evade Choice",  # 29
+        "Evade Antic",  # 30
+        "Evade Dir",  # 31
+        "Evade Right",  # 32
+        "Evade",  # 33
+        "Evade Recover",  # 34
+        "Televade",  # 35
+        "Stop",  # 36
+        "Sleep",  # 37
+        "Wake",  # 38
+        "Cancel Frame",  # 39
+        "Init Blast",  # 40
+        "GG Pause",  # 41
+        "GG Music",  # 42
+    ],
+    26: [  # Soul Master
+        "Init",  # 1
+        "Idle",  # 2
+        "Teleport",  # 3
+        "Tele Line",  # 4
+        "Tele Away",  # 5
+        "Pause",  # 6
+        "Away Valid?",  # 7
+        "Tele Top Y",  # 8
+        "Tele Spinner X",  # 9
+        "After Tele",  # 10
+        "HS Summon",  # 11
+        "HS Orb",  # 12
+        "HS Dir",  # 13
+        "HS Right",  # 14
+        "HS Left",  # 15
+        "HS Stop",  # 16
+        "HS Tele Out",  # 17
+        "HS Ret Left",  # 18
+        "Hs Ret Right",  # 19
+        "Reactivate",  # 20
+        "HS Dissipate",  # 21
+        "Tele Charge",  # 22
+        "Charge Dir",  # 23
+        "Charge Left",  # 24
+        "Charge Right",  # 25
+        "Charge Stop",  # 26
+        "Tele Bot Y",  # 27
+        "Set Shots",  # 28
+        "Shot Antic",  # 29
+        "Shot",  # 30
+        "Tele Shoot",  # 31
+        "Attack Choice",  # 32
+        "Next?",  # 33
+        "Damaged Idle",  # 34
+        "Set Idle Timer",  # 35
+        "Shoot Valid?",  # 36
+        "Tele Quake",  # 37
+        "TeleportQ",  # 38
+        "Tele Line Q",  # 39
+        "Quake Antic",  # 40
+        "Quake Down",  # 41
+        "Quake Land",  # 42
+        "Re Pos",  # 43
+        "Quake Waves",  # 44
+        "Damage Tele Away",  # 45
+        "Attack Instead",  # 46
+        "Charge Antic",  # 47
+        "Fakeout?",  # 48
+        "Fake Down",  # 49
+        "Reset",  # 50
+        "Stun Init",  # 51
+        "Stun L",  # 52
+        "Stun R",  # 53
+        "Stun Start 1",  # 54
+        "Stun Start 2",  # 55
+        "Stunned",  # 56
+        "Stun Reset",  # 57
+        "Stun Hit",  # 58
+        "Stun Hit L",  # 59
+        "Stun Hit R",  # 60
+        "Sleep",  # 61
+        "Start Arena",  # 62
+        "Silhouette Rise",  # 63
+        "Silhouette Summon",  # 64
+        "Set Entry Point",  # 65
+        "Teleport In",  # 66
+        "Roar",  # 67
+        "Roar End",  # 68
+        "Encountered?",  # 69
+        "Quick Start",  # 70
+        "GG Pause",  # 71
+        "Set Entry Point GG",  # 72
+        "Music",  # 73
+    ],
+    27: [  # Soul Tyrant
+        "Init",  # 1
+        "Idle",  # 2
+        "Teleport",  # 3
+        "Tele Line",  # 4
+        "Tele Away",  # 5
+        "Pause",  # 6
+        "Away Valid?",  # 7
+        "Tele Top Y",  # 8
+        "Tele Spinner X",  # 9
+        "After Tele",  # 10
+        "HS Summon",  # 11
+        "HS Orb",  # 12
+        "HS Dir",  # 13
+        "HS Right",  # 14
+        "HS Left",  # 15
+        "HS Stop",  # 16
+        "HS Tele Out",  # 17
+        "HS Ret Left",  # 18
+        "Hs Ret Right",  # 19
+        "Reactivate",  # 20
+        "HS Dissipate",  # 21
+        "Tele Charge",  # 22
+        "Charge Dir",  # 23
+        "Charge Left",  # 24
+        "Charge Right",  # 25
+        "Charge Stop",  # 26
+        "Tele Bot Y",  # 27
+        "Set Shots",  # 28
+        "Shot Antic",  # 29
+        "Shot",  # 30
+        "Tele Shoot",  # 31
+        "Attack Choice",  # 32
+        "Next?",  # 33
+        "Damaged Idle",  # 34
+        "Set Idle Timer",  # 35
+        "Shoot Valid?",  # 36
+        "Tele Quake",  # 37
+        "TeleportQ",  # 38
+        "Tele Line Q",  # 39
+        "Quake Antic",  # 40
+        "Quake Down",  # 41
+        "Quake Land",  # 42
+        "Re Pos",  # 43
+        "Quake Waves",  # 44
+        "Damage Tele Away",  # 45
+        "Attack Instead",  # 46
+        "Charge Antic",  # 47
+        "Fakeout?",  # 48
+        "Fake Down",  # 49
+        "Reset",  # 50
+        "Stun Init",  # 51
+        "Stun L",  # 52
+        "Stun R",  # 53
+        "Stun Start 1",  # 54
+        "Stun Start 2",  # 55
+        "Stunned",  # 56
+        "Stun Reset",  # 57
+        "Stun Hit",  # 58
+        "Stun Hit L",  # 59
+        "Stun Hit R",  # 60
+        "Sleep",  # 61
+        "Set Entry Point",  # 62
+        "Teleport In",  # 63
+        "Roar",  # 64
+        "Roar End",  # 65
+        "Encountered?",  # 66
+        "Quick Start",  # 67
+        "Music",  # 68
+        "GG Enter",  # 69
+    ],
+    28: [  # Dung Defender
+        "Init",  # 1
+        "Idle",  # 2
+        "Dive In 1",  # 3
+        "Dive In 2",  # 4
+        "Underground",  # 5
+        "Erupt Tunneling",  # 6
+        "Tunneling L",  # 7
+        "Tunneling R",  # 8
+        "Erupt Antic",  # 9
+        "Erupt Out",  # 10
+        "Erupt Fall",  # 11
+        "Erupt Land",  # 12
+        "Set Min X",  # 13
+        "Set Max X",  # 14
+        "Throw Antic 1",  # 15
+        "Set Throws",  # 16
+        "Throw 1",  # 17
+        "Set Throw Speed",  # 18
+        "Keep Throwing?",  # 19
+        "Throw Antic 2",  # 20
+        "Throw Antic 3",  # 21
+        "RJ Set",  # 22
+        "After Throw?",  # 23
+        "Roll Speed",  # 24
+        "RJ Antic",  # 25
+        "RJ Launch",  # 26
+        "RJ In Air",  # 27
+        "RJ Bounce",  # 28
+        "RJ Wall",  # 29
+        "RJ Unroll",  # 30
+        "RJ Speed Adjust",  # 31
+        "TD Set",  # 32
+        "Dolph Dir",  # 33
+        "Dolph Antic",  # 34
+        "Diving",  # 35
+        "Dolph Dives",  # 36
+        "Repeat?",  # 37
+        "Dolphin Recover",  # 38
+        "DT Set",  # 39
+        "To Dolph Pause",  # 40
+        "Timer",  # 41
+        "Evade Check",  # 42
+        "Evade Dir",  # 43
+        "Evade Start",  # 44
+        "Evade Ball",  # 45
+        "Evade Recover",  # 46
+        "Will Evade?",  # 47
+        "Reset Evade",  # 48
+        "Stun Set",  # 49
+        "Stun Launch",  # 50
+        "Stun In Air",  # 51
+        "Stun Land",  # 52
+        "Stun Recover",  # 53
+        "Throw 2",  # 54
+        "Move Choice",  # 55
+        "Sleep",  # 56
+        "Wake",  # 57
+        "First?",  # 58
+        "Erupt Out First",  # 59
+        "Roar?",  # 60
+        "Roar End",  # 61
+        "Set Rage",  # 62
+        "Erupt Antic R",  # 63
+        "Rage In",  # 64
+        "Rage?",  # 65
+        "Rage Roar",  # 66
+        "Quaked Out",  # 67
+        "Ball Hit Up",  # 68
+        "Ball Hit Left",  # 69
+        "Ball Hit Right",  # 70
+        "Roll Voice",  # 71
+        "Stop Voice",  # 72
+        "DO Intro?",  # 73
+        "Rage HP",  # 74
+        "GG Pause",  # 75
+    ],
 }
 
 
 def get_fsm_state_name(packed_state: int) -> str:
+    """'Name (id)', or 'Unknown (id)' for state 0 and ids missing from the table."""
     boss_id = packed_state >> 8
     state_id = packed_state & 0xFF
-    if state_id == 0:
-        return "Unknown / Init (0)"
-    name = BOSS_FSM_STATES.get(str(boss_id), {}).get(str(state_id))
-    return f"{name} ({state_id})" if name else f"State_{state_id}"
+    states = BOSS_FSM_STATES.get(boss_id, [])
+    name = states[state_id - 1] if 0 < state_id <= len(states) else "Unknown"
+    return f"{name} ({state_id})"
 
 
 def fsm_state_names(boss_id: int) -> list[str]:
     """One-hot column names for a boss: column 0 is the unknown state, column i is state id i."""
-    states = BOSS_FSM_STATES[str(boss_id)]
-    return ["Unknown"] + [states[str(i)] for i in range(1, len(states) + 1)]
+    return ["Unknown", *BOSS_FSM_STATES[boss_id]]
 
 
 def fsm_one_hot(packed_states: np.ndarray, boss_id: int) -> np.ndarray:
     """(T,) packed FSM states -> (T, N + 1) float32 one-hot; unknown or out-of-range ids map to column 0."""
-    n_states = len(BOSS_FSM_STATES[str(boss_id)])
+    n_states = len(BOSS_FSM_STATES[boss_id])
     state_id = packed_states & 0xFF
     return np.eye(n_states + 1, dtype=np.float32)[np.where(state_id <= n_states, state_id, 0)]

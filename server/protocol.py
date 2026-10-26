@@ -8,7 +8,7 @@ from __future__ import annotations
 import struct
 import warnings
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from enum import IntEnum, IntFlag
 
 
@@ -65,6 +65,10 @@ class EntityType(IntEnum):
     MINION = 3
     SHOCKWAVE = 4
 
+    @classmethod
+    def _missing_(cls, value):
+        return cls.UNKNOWN
+
 
 class EpisodeStatus(IntEnum):
     IN_PROGRESS = 0
@@ -103,6 +107,13 @@ BOSS_NAMES = {
     26: "Soul Master",
 }
 
+FRAME_DT = 0.02  # Seconds per recorded frame (50 Hz)
+
+
+def flag_names(flags: IntFlag) -> str:
+    return " | ".join(flag.name for flag in flags) or "None"
+
+
 # Struct Formats & Dataclasses
 
 EXPECTED_MAGIC = 0x3430415441444B48  # "HKDATA04" in ASCII little-endian
@@ -136,15 +147,15 @@ ACTION_PACKET_STRUCT = struct.Struct("<I B B H")
 HANDSHAKE_MAGIC = 0x4B485244  # "HKRD" in ASCII little-endian (4 bytes)
 HANDSHAKE_STRUCT = struct.Struct("<I")
 
-assert HEADER_STRUCT.size == 40, (
-    f"EpisodeFileHeader size must be 40, got {HEADER_STRUCT.size}"
-)
-assert FRAME_STRUCT.size == 88, (
-    f"FrameDataHeader size must be 88, got {FRAME_STRUCT.size}"
-)
-assert ENTITY_STRUCT.size == 40, f"EntityData size must be 40, got {ENTITY_STRUCT.size}"
-assert ACTION_PACKET_STRUCT.size == 8, f"ActionPacket size must be 8, got {ACTION_PACKET_STRUCT.size}"
-assert HANDSHAKE_STRUCT.size == 4, f"Handshake size must be 4, got {HANDSHAKE_STRUCT.size}"
+assert HEADER_STRUCT.size == 40
+assert FRAME_STRUCT.size == 88
+assert ENTITY_STRUCT.size == 40
+assert ACTION_PACKET_STRUCT.size == 8
+assert HANDSHAKE_STRUCT.size == 4
+
+
+# Dataclass fields are declared in struct order, so unpack is cls(*values)
+# and __post_init__ turns the raw integers into enums.
 
 
 @dataclass
@@ -154,16 +165,15 @@ class ActionPacket:
     command_flags: int = 0
     reserved: int = 0
 
+    def __post_init__(self):
+        self.action_held = ActionButtons(self.action_held)
+
     def pack(self) -> bytes:
-        return ACTION_PACKET_STRUCT.pack(
-            self.step_id, int(self.action_held), self.command_flags, self.reserved
-        )
+        return ACTION_PACKET_STRUCT.pack(*astuple(self))
 
     @classmethod
     def unpack(cls, buffer: bytes) -> ActionPacket:
-        step_id, action_held, cmd_flags, res = ACTION_PACKET_STRUCT.unpack(buffer[:8])
-        return cls(step_id, ActionButtons(action_held), cmd_flags, res)
-
+        return cls(*ACTION_PACKET_STRUCT.unpack_from(buffer))
 
 
 @dataclass
@@ -194,51 +204,11 @@ class EpisodeHeader:
         )
 
     def pack(self) -> bytes:
-        return HEADER_STRUCT.pack(
-            self.magic,
-            self.arena_min_x,
-            self.arena_max_x,
-            self.arena_min_y,
-            self.arena_max_y,
-            self.knight_bound_width,
-            self.knight_bound_height,
-            self.boss_id,
-            self.boss_difficulty,
-            self.nail_damage,
-            self.max_health,
-            self.reserved,
-        )
+        return HEADER_STRUCT.pack(*astuple(self))
 
     @classmethod
     def unpack(cls, buffer: bytes) -> EpisodeHeader:
-        (
-            magic,
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            knight_bw,
-            knight_bh,
-            boss_id,
-            boss_diff,
-            nail_dmg,
-            max_hp,
-            res,
-        ) = HEADER_STRUCT.unpack(buffer[:40])
-        return cls(
-            magic,
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            knight_bw,
-            knight_bh,
-            boss_id,
-            boss_diff,
-            nail_dmg,
-            max_hp,
-            res,
-        )
+        return cls(*HEADER_STRUCT.unpack_from(buffer))
 
 
 @dataclass
@@ -257,28 +227,9 @@ class EntityData:
     flags: EntityFlags
     reserved: int
 
-    @classmethod
-    def unpack(cls, buffer: bytes) -> EntityData:
-        (x, y, vx, vy, bw, bh, rot, prog, ent_id, hp, kind_b, flags_b, res) = (
-            ENTITY_STRUCT.unpack(buffer[:40])
-        )
-        return cls(
-            x=x,
-            y=y,
-            vx=vx,
-            vy=vy,
-            bound_width=bw,
-            bound_height=bh,
-            rotation=rot,
-            progress=prog,
-            entity_id=ent_id,
-            hp=hp,
-            kind=EntityType(kind_b)
-            if kind_b in EntityType._value2member_map_
-            else EntityType.UNKNOWN,
-            flags=EntityFlags(flags_b),
-            reserved=res,
-        )
+    def __post_init__(self):
+        self.kind = EntityType(self.kind)
+        self.flags = EntityFlags(self.flags)
 
 
 @dataclass
@@ -314,75 +265,16 @@ class FrameDataHeader:
     action_held: ActionButtons
     reserved: int
 
+    def __post_init__(self):
+        self.knight_flags = KnightFlags(self.knight_flags)
+        self.is_done = EpisodeStatus(self.is_done)  # Raises on an unknown status
+        self.flags = FrameFlags(self.flags)
+        self.action_pressed = ActionButtons(self.action_pressed)
+        self.action_held = ActionButtons(self.action_held)
+
     @classmethod
     def unpack(cls, buffer: bytes) -> FrameDataHeader:
-        (
-            frame_id,
-            kx,
-            ky,
-            kvx,
-            kvy,
-            nail_cd,
-            dash_cd,
-            shadow_dash_cd,
-            invuln,
-            focus,
-            bx,
-            by,
-            bvx,
-            bvy,
-            boss_hp,
-            fsm_time,
-            bbw,
-            bbh,
-            k_flags,
-            b_fsm,
-            prev_fsm,
-            khp,
-            kmp,
-            kmp_res,
-            is_done,
-            ent_count,
-            flags,
-            act_pressed,
-            act_held,
-            res,
-        ) = FRAME_STRUCT.unpack(buffer[:88])
-
-        return cls(
-            frame_id=frame_id,
-            knight_x=kx,
-            knight_y=ky,
-            knight_vx=kvx,
-            knight_vy=kvy,
-            nail_cooldown=nail_cd,
-            dash_cooldown=dash_cd,
-            shadow_dash_cooldown=shadow_dash_cd,
-            invuln_remaining=invuln,
-            focus_progress=focus,
-            boss_x=bx,
-            boss_y=by,
-            boss_vx=bvx,
-            boss_vy=bvy,
-            boss_hp=boss_hp,
-            fsm_state_time=fsm_time,
-            boss_bound_width=bbw,
-            boss_bound_height=bbh,
-            knight_flags=KnightFlags(k_flags),
-            boss_fsm_state=b_fsm,
-            prev_fsm_state=prev_fsm,
-            knight_hp=khp,
-            knight_mp=kmp,
-            knight_mp_reserve=kmp_res,
-            is_done=EpisodeStatus(is_done)
-            if is_done in EpisodeStatus._value2member_map_
-            else EpisodeStatus.IN_PROGRESS,
-            entity_count=ent_count,
-            flags=FrameFlags(flags),
-            action_pressed=ActionButtons(act_pressed),
-            action_held=ActionButtons(act_held),
-            reserved=res,
-        )
+        return cls(*FRAME_STRUCT.unpack_from(buffer))
 
 
 @dataclass
@@ -426,10 +318,7 @@ class EpisodeReader:
         if len(ent_bytes) < fh.entity_count * ENTITY_STRUCT.size:
             warnings.warn(f"{filepath}: dropped final frame {fh.frame_id} with truncated entities")
             return None
-        entities = [
-            EntityData.unpack(ent_bytes[i * ENTITY_STRUCT.size : (i + 1) * ENTITY_STRUCT.size])
-            for i in range(fh.entity_count)
-        ]
+        entities = [EntityData(*values) for values in ENTITY_STRUCT.iter_unpack(ent_bytes)]
         return Frame(header=fh, entities=entities)
 
     @staticmethod
