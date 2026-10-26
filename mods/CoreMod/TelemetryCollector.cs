@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using System.Reflection;
 using Modding;
 using UnityEngine;
 
@@ -27,6 +29,12 @@ namespace CoreMod
         private static float _fsmStateTime;
         private static readonly EntityData[] _entities = new EntityData[64];
         private static int _entityCount;
+
+        // HeroController.CanDash is private; it covers the cooldown and the one-dash-per-airtime rule.
+        private static readonly Func<HeroController, bool> HeroCanDash =
+            (Func<HeroController, bool>)Delegate.CreateDelegate(
+                typeof(Func<HeroController, bool>),
+                typeof(HeroController).GetMethod("CanDash", BindingFlags.NonPublic | BindingFlags.Instance));
 
         /// <summary>
         /// Call once per FixedUpdate. Does nothing outside boss scenes.
@@ -113,6 +121,7 @@ namespace CoreMod
         {
             PlayerData pd = PlayerData.instance;
             GetArenaBounds(out float minX, out float maxX, out float minY, out float maxY);
+            Vector2 knightExtents = HeroController.instance.GetComponent<Collider2D>().bounds.extents;
 
             return new EpisodeFileHeader
             {
@@ -121,6 +130,8 @@ namespace CoreMod
                 ArenaMaxX = maxX,
                 ArenaMinY = minY,
                 ArenaMaxY = maxY,
+                KnightBoundWidth = knightExtents.x,
+                KnightBoundHeight = knightExtents.y,
                 BossId = _bossInfo != null ? _bossInfo.Id : BossRegistry.UnknownBossId,
                 BossDifficulty = (byte)BossSceneController.Instance.BossLevel,
                 NailDamage = (byte)pd.nailDamage,
@@ -460,6 +471,15 @@ namespace CoreMod
             Vector2 velocity = hc.GetComponent<Rigidbody2D>().velocity;
             float nailCooldown = ReflectionHelper.GetField<HeroController, float>(hc, "attack_cooldown");
             float dashCooldown = ReflectionHelper.GetField<HeroController, float>(hc, "dashCooldownTimer");
+            float shadowDashCooldown = ReflectionHelper.GetField<HeroController, float>(hc, "shadowDashTimer");
+
+            // A shadow dash makes the knight immune to enemy damage until the dash ends (dash_timer > DASH_TIME)
+            float invulnRemaining = _invulnRemaining;
+            if (hc.cState.shadowDashing)
+            {
+                float dashTimer = ReflectionHelper.GetField<HeroController, float>(hc, "dash_timer");
+                invulnRemaining = Mathf.Max(invulnRemaining, hc.DASH_TIME - dashTimer);
+            }
 
             f.KnightX = position.x;
             f.KnightY = position.y;
@@ -468,14 +488,15 @@ namespace CoreMod
             f.KnightHp = (byte)pd.health;
             f.KnightMp = (byte)pd.MPCharge;
             f.KnightMpReserve = (byte)(pd.MPReserve / 33);
-            f.KnightFlags = ReadKnightFlags(hc, pd, nailCooldown, dashCooldown);
+            f.KnightFlags = ReadKnightFlags(hc, pd, nailCooldown);
             f.NailCooldown = nailCooldown;
             f.DashCooldown = dashCooldown;
-            f.InvulnRemaining = _invulnRemaining;
+            f.ShadowDashCooldown = Mathf.Max(0f, shadowDashCooldown);
+            f.InvulnRemaining = invulnRemaining;
             f.FocusProgress = 0f; // TODO placeholder
         }
 
-        private static KnightFlags ReadKnightFlags(HeroController hc, PlayerData pd, float nailCooldown, float dashCooldown)
+        private static KnightFlags ReadKnightFlags(HeroController hc, PlayerData pd, float nailCooldown)
         {
             HeroControllerStates s = hc.cState;
             bool doubleJumped = ReflectionHelper.GetField<HeroController, bool>(hc, "doubleJumped");
@@ -487,7 +508,7 @@ namespace CoreMod
             if (s.dashing)                             flags |= KnightFlags.IsDashing;
             if (s.invulnerable)                        flags |= KnightFlags.IsInvulnerable;
             if (pd.hasDoubleJump && !doubleJumped)     flags |= KnightFlags.CanDoubleJump;
-            if (dashCooldown <= 0f)                    flags |= KnightFlags.CanDash;
+            if (HeroCanDash(hc))                       flags |= KnightFlags.CanDash;
             if (nailCooldown <= 0f)                    flags |= KnightFlags.CanAttack;
             if (s.focusing)                            flags |= KnightFlags.IsFocusing;
             if (s.recoiling)                           flags |= KnightFlags.IsRecoiling;
@@ -628,14 +649,14 @@ namespace CoreMod
 
         private static string Format(EpisodeFileHeader h) =>
             $"[Telemetry] EPISODE magic=0x{h.Magic:X16} boss={h.BossId} diff={h.BossDifficulty} " +
-            $"nail={h.NailDamage} maxHp={h.MaxHealth} " +
+            $"nail={h.NailDamage} maxHp={h.MaxHealth} knight={h.KnightBoundWidth:F2}x{h.KnightBoundHeight:F2} " +
             $"arena=({h.ArenaMinX:F2}..{h.ArenaMaxX:F2}, {h.ArenaMinY:F2}..{h.ArenaMaxY:F2})";
 
         private static string Format(FrameDataHeader f) =>
             $"[Telemetry] F={f.FrameId} status={f.IsDone} " +
             $"K(pos={f.KnightX:F2},{f.KnightY:F2} vel={f.KnightVx:F2},{f.KnightVy:F2} " +
             $"hp={f.KnightHp} mp={f.KnightMp} res={f.KnightMpReserve} " +
-            $"nailCd={f.NailCooldown:F2} dashCd={f.DashCooldown:F2} invuln={f.InvulnRemaining:F2} focus={f.FocusProgress:F2} " +
+            $"nailCd={f.NailCooldown:F2} dashCd={f.DashCooldown:F2} sdashCd={f.ShadowDashCooldown:F2} invuln={f.InvulnRemaining:F2} focus={f.FocusProgress:F2} " +
             $"flags={f.KnightFlags}) " +
             $"B(pos={f.BossX:F2},{f.BossY:F2} vel={f.BossVx:F2},{f.BossVy:F2} " +
             $"bounds={f.BossBoundWidth:F2}x{f.BossBoundHeight:F2} hp={f.BossHp} " +

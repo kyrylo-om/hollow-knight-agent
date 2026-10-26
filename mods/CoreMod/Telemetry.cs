@@ -95,30 +95,32 @@ namespace CoreMod
     }
 
     // =========================================================================
-    // 1. Episode File Header (Written ONCE at file start: 32 bytes)
+    // 1. Episode File Header (Written ONCE at file start: 40 bytes)
     // =========================================================================
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct EpisodeFileHeader
     {
         // 8-byte field (Offset 0..7)
-        public ulong Magic;               // 0x3330415441444B48 ("HKDATA03" ASCII little-endian) (8 bytes)
+        public ulong Magic;               // 0x3430415441444B48 ("HKDATA04" ASCII little-endian) (8 bytes)
 
-        // 4-byte fields (Offsets 8..23)
+        // 4-byte fields (Offsets 8..31)
         public float ArenaMinX;           // Arena left wall (4 bytes)
         public float ArenaMaxX;           // Arena right wall (4 bytes)
         public float ArenaMinY;           // Arena floor (4 bytes)
         public float ArenaMaxY;           // Arena ceiling (4 bytes)
+        public float KnightBoundWidth;    // Knight collider half-width (4 bytes)
+        public float KnightBoundHeight;   // Knight collider half-height (4 bytes)
 
-        // 1-byte fields (Offsets 24..27)
+        // 1-byte fields (Offsets 32..35)
         public byte BossId;               // BossInfo.Id from BossRegistry.Bosses, 0 = unknown (1 byte)
         public byte BossDifficulty;       // 0 = Attuned, 1 = Ascended, 2 = Radiant (1 byte)
         public byte NailDamage;           // 5 (Old), 9 (Sharpened), 13 (Channeled), 17 (Coiled), 21 (Pure) (1 byte)
         public byte MaxHealth;            // Max masks (5..9) (1 byte)
 
-        // Trailing padding field (Offsets 28..31) -> aligns struct to 32 bytes (multiple of 8)
-        public int Reserved;              // Alignment padding to 32 bytes (4 bytes)
+        // Trailing padding field (Offsets 36..39) -> aligns struct to 40 bytes (multiple of 8)
+        public int Reserved;              // Alignment padding to 40 bytes (4 bytes)
 
-        public static readonly ulong ExpectedMagic = 0x3330415441444B48; // "HKDATA03"
+        public static readonly ulong ExpectedMagic = 0x3430415441444B48; // "HKDATA04"
     }
 
     // =========================================================================
@@ -150,12 +152,12 @@ namespace CoreMod
     }
 
     // =========================================================================
-    // 3. Fixed Frame Header (84 bytes)
+    // 3. Fixed Frame Header (88 bytes)
     // =========================================================================
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct FrameDataHeader
     {
-        // --- 4-byte fields (68 bytes: Offsets 0..67) ---
+        // --- 4-byte fields (72 bytes: Offsets 0..71) ---
         public uint FrameId;              // timestamp = frame_id * 0.02s (4 bytes)
         public float KnightX;             // Absolute arena position X (4 bytes)
         public float KnightY;             // Absolute arena position Y (4 bytes)
@@ -163,7 +165,8 @@ namespace CoreMod
         public float KnightVy;            // Velocity Y (4 bytes)
         public float NailCooldown;        // Seconds until next nail swing (4 bytes)
         public float DashCooldown;        // Seconds until next dash (4 bytes)
-        public float InvulnRemaining;     // Seconds of invulnerability left (4 bytes)
+        public float ShadowDashCooldown;  // Seconds until the next dash is a shadow dash, 0 = available (4 bytes)
+        public float InvulnRemaining;     // Seconds of invulnerability left, incl. an active shadow dash (4 bytes)
         public float FocusProgress;       // Heal channel progress 0..1 (4 bytes)
 
         // --- Boss Kinematics & Health (36 bytes) ---
@@ -176,12 +179,12 @@ namespace CoreMod
         public float BossBoundWidth;      // Collision half-width (4 bytes)
         public float BossBoundHeight;     // Collision half-height (4 bytes)
 
-        // --- 2-byte fields (6 bytes: Offsets 68..73) ---
+        // --- 2-byte fields (6 bytes: Offsets 72..77) ---
         public KnightFlags KnightFlags;   // Bitmask of knight movement/combat state (2 bytes)
         public ushort BossFsmState;       // Active boss FSM state: BossId << 8 | BossFsms state id (2 bytes)
         public ushort PrevFsmState;       // Previous boss FSM state, same encoding (2 bytes)
 
-        // --- 1-byte fields (8 bytes: Offsets 74..81) ---
+        // --- 1-byte fields (8 bytes: Offsets 78..85) ---
         public byte KnightHp;             // Current HP (0..9) (1 byte)
         public byte KnightMp;             // Current MP / Soul (0..99) (1 byte)
         public byte KnightMpReserve;      // Reserve soul vessels (0..3) (1 byte)
@@ -191,7 +194,7 @@ namespace CoreMod
         public ActionButtons ActionPressed;// Newly pressed buttons bitmask (1 byte)
         public ActionButtons ActionHeld;  // Held down buttons bitmask (1 byte)
 
-        // --- Alignment Padding (2 bytes: Offsets 82..83) ---
-        public ushort Reserved;           // Rounds struct to 84 bytes (divisible by 4) (2 bytes)
+        // --- Alignment Padding (2 bytes: Offsets 86..87) ---
+        public ushort Reserved;           // Rounds struct to 88 bytes (divisible by 4) (2 bytes)
     }
 }

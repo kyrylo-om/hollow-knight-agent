@@ -63,7 +63,7 @@ def print_episode_summary(header: EpisodeHeader, frames: list[Frame], filepath: 
     num_frames = len(frames)
     duration_sec = num_frames * 0.02
     magic_ok = (
-        "OK (0x3330415441444B48)"
+        f"OK (0x{EXPECTED_MAGIC:X})"
         if header.magic == EXPECTED_MAGIC
         else f"INVALID (0x{header.magic:X})"
     )

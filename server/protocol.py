@@ -6,6 +6,7 @@ All binary structures use little-endian byte ordering (<) with Pack = 1.
 from __future__ import annotations
 
 import struct
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import IntEnum, IntFlag
@@ -104,20 +105,20 @@ BOSS_NAMES = {
 
 # Struct Formats & Dataclasses
 
-EXPECTED_MAGIC = 0x3330415441444B48  # "HKDATA03" in ASCII little-endian
+EXPECTED_MAGIC = 0x3430415441444B48  # "HKDATA04" in ASCII little-endian
 
-# 1. EpisodeFileHeader: 32 bytes (<Q 4f BBBB i)
+# 1. EpisodeFileHeader: 40 bytes (<Q 6f BBBB i)
 # Magic (8), ArenaMinX (4), ArenaMaxX (4), ArenaMinY (4), ArenaMaxY (4),
+# KnightBoundWidth (4), KnightBoundHeight (4),
 # BossId (1), BossDifficulty (1), NailDamage (1), MaxHealth (1), Reserved (4)
-HEADER_STRUCT = struct.Struct("<Q 4f BBBB i")
-LEGACY_HEADER_STRUCT = struct.Struct("<QBBBB i")
+HEADER_STRUCT = struct.Struct("<Q 6f BBBB i")
 
-# 2. FrameDataHeader: 84 bytes
-# Offsets 0..67: I (4) + 8f (32) + 4f (16) + i (4) + 3f (12) = 68B
-# Offsets 68..73: 3H (6B)
-# Offsets 74..81: 8B (8B)
-# Offsets 82..83: H (2B)
-FRAME_STRUCT = struct.Struct("<I 12f i 3f 3H 8B H")
+# 2. FrameDataHeader: 88 bytes
+# Offsets 0..71: I (4) + 9f (36) + 4f (16) + i (4) + 3f (12) = 72B
+# Offsets 72..77: 3H (6B)
+# Offsets 78..85: 8B (8B)
+# Offsets 86..87: H (2B)
+FRAME_STRUCT = struct.Struct("<I 13f i 3f 3H 8B H")
 
 # 3. EntityData: 40 bytes
 # Offsets 0..31: 8f (32B)
@@ -135,14 +136,11 @@ ACTION_PACKET_STRUCT = struct.Struct("<I B B H")
 HANDSHAKE_MAGIC = 0x4B485244  # "HKRD" in ASCII little-endian (4 bytes)
 HANDSHAKE_STRUCT = struct.Struct("<I")
 
-assert HEADER_STRUCT.size == 32, (
-    f"EpisodeFileHeader size must be 32, got {HEADER_STRUCT.size}"
+assert HEADER_STRUCT.size == 40, (
+    f"EpisodeFileHeader size must be 40, got {HEADER_STRUCT.size}"
 )
-assert LEGACY_HEADER_STRUCT.size == 16, (
-    f"Legacy EpisodeFileHeader size must be 16, got {LEGACY_HEADER_STRUCT.size}"
-)
-assert FRAME_STRUCT.size == 84, (
-    f"FrameDataHeader size must be 84, got {FRAME_STRUCT.size}"
+assert FRAME_STRUCT.size == 88, (
+    f"FrameDataHeader size must be 88, got {FRAME_STRUCT.size}"
 )
 assert ENTITY_STRUCT.size == 40, f"EntityData size must be 40, got {ENTITY_STRUCT.size}"
 assert ACTION_PACKET_STRUCT.size == 8, f"ActionPacket size must be 8, got {ACTION_PACKET_STRUCT.size}"
@@ -175,6 +173,8 @@ class EpisodeHeader:
     arena_max_x: float
     arena_min_y: float
     arena_max_y: float
+    knight_bound_width: float
+    knight_bound_height: float
     boss_id: int
     boss_difficulty: int
     nail_damage: int
@@ -200,6 +200,8 @@ class EpisodeHeader:
             self.arena_max_x,
             self.arena_min_y,
             self.arena_max_y,
+            self.knight_bound_width,
+            self.knight_bound_height,
             self.boss_id,
             self.boss_difficulty,
             self.nail_damage,
@@ -209,41 +211,28 @@ class EpisodeHeader:
 
     @classmethod
     def unpack(cls, buffer: bytes) -> EpisodeHeader:
-        if len(buffer) < 32:
-            magic, boss_id, boss_diff, nail_dmg, max_hp, res = LEGACY_HEADER_STRUCT.unpack(
-                buffer[:16]
-            )
-            return cls(
-                magic=magic,
-                arena_min_x=14.0,
-                arena_max_x=46.0,
-                arena_min_y=26.2,
-                arena_max_y=42.0,
-                boss_id=boss_id,
-                boss_difficulty=boss_diff,
-                nail_damage=nail_dmg,
-                max_health=max_hp,
-                reserved=res,
-            )
-
         (
             magic,
             min_x,
             max_x,
             min_y,
             max_y,
+            knight_bw,
+            knight_bh,
             boss_id,
             boss_diff,
             nail_dmg,
             max_hp,
             res,
-        ) = HEADER_STRUCT.unpack(buffer[:32])
+        ) = HEADER_STRUCT.unpack(buffer[:40])
         return cls(
             magic,
             min_x,
             max_x,
             min_y,
             max_y,
+            knight_bw,
+            knight_bh,
             boss_id,
             boss_diff,
             nail_dmg,
@@ -301,6 +290,7 @@ class FrameDataHeader:
     knight_vy: float
     nail_cooldown: float
     dash_cooldown: float
+    shadow_dash_cooldown: float
     invuln_remaining: float
     focus_progress: float
     boss_x: float
@@ -334,6 +324,7 @@ class FrameDataHeader:
             kvy,
             nail_cd,
             dash_cd,
+            shadow_dash_cd,
             invuln,
             focus,
             bx,
@@ -356,7 +347,7 @@ class FrameDataHeader:
             act_pressed,
             act_held,
             res,
-        ) = FRAME_STRUCT.unpack(buffer[:84])
+        ) = FRAME_STRUCT.unpack(buffer[:88])
 
         return cls(
             frame_id=frame_id,
@@ -366,6 +357,7 @@ class FrameDataHeader:
             knight_vy=kvy,
             nail_cooldown=nail_cd,
             dash_cooldown=dash_cd,
+            shadow_dash_cooldown=shadow_dash_cd,
             invuln_remaining=invuln,
             focus_progress=focus,
             boss_x=bx,
@@ -406,52 +398,48 @@ class EpisodeReader:
     """Reads binary episode recordings saved by RecordMod."""
 
     @staticmethod
-    def _read_header_and_offset(f) -> tuple[EpisodeHeader, int]:
-        """Reads EpisodeHeader and detects 32-byte vs legacy 16-byte header."""
-        header_bytes = f.read(32)
-        if len(header_bytes) < 16:
-            raise ValueError(f"File too small for header: {len(header_bytes)} bytes")
+    def _read_header(f, filepath: str) -> EpisodeHeader:
+        """Reads the EpisodeHeader and rejects files of any other format version."""
+        header_bytes = f.read(HEADER_STRUCT.size)
+        if len(header_bytes) < HEADER_STRUCT.size:
+            raise ValueError(f"{filepath}: file too small for header: {len(header_bytes)} bytes")
 
-        is_legacy = False
-        if len(header_bytes) >= 28:
-            fid, _kx, ky = struct.unpack("<I ff", header_bytes[16:28])
-            if fid == 0 and 1.0 <= ky <= 150.0:
-                is_legacy = True
+        header = EpisodeHeader.unpack(header_bytes)
+        if header.magic != EXPECTED_MAGIC:
+            raise ValueError(
+                f"{filepath}: bad magic 0x{header.magic:X} (expected 0x{EXPECTED_MAGIC:X})"
+            )
+        return header
 
-        if is_legacy or len(header_bytes) < 32:
-            header = EpisodeHeader.unpack(header_bytes[:16])
-            f.seek(16)
-            return header, 16
+    @staticmethod
+    def _read_frame(f, filepath: str) -> Frame | None:
+        """Reads one frame; returns None at EOF and drops a truncated final frame with a warning."""
+        frame_bytes = f.read(FRAME_STRUCT.size)
+        if not frame_bytes:
+            return None
+        if len(frame_bytes) < FRAME_STRUCT.size:
+            warnings.warn(f"{filepath}: dropped truncated final frame header")
+            return None
+        fh = FrameDataHeader.unpack(frame_bytes)
 
-        header = EpisodeHeader.unpack(header_bytes[:32])
-        f.seek(32)
-        return header, 32
+        ent_bytes = f.read(fh.entity_count * ENTITY_STRUCT.size)
+        if len(ent_bytes) < fh.entity_count * ENTITY_STRUCT.size:
+            warnings.warn(f"{filepath}: dropped final frame {fh.frame_id} with truncated entities")
+            return None
+        entities = [
+            EntityData.unpack(ent_bytes[i * ENTITY_STRUCT.size : (i + 1) * ENTITY_STRUCT.size])
+            for i in range(fh.entity_count)
+        ]
+        return Frame(header=fh, entities=entities)
 
     @staticmethod
     def read_file(filepath: str) -> tuple[EpisodeHeader, list[Frame]]:
         with open(filepath, "rb") as f:
-            header, _ = EpisodeReader._read_header_and_offset(f)
+            header = EpisodeReader._read_header(f, filepath)
 
             frames: list[Frame] = []
-            while True:
-                frame_bytes = f.read(84)
-                if not frame_bytes:
-                    break
-                if len(frame_bytes) < 84:
-                    # Incomplete frame at EOF
-                    break
-                fh = FrameDataHeader.unpack(frame_bytes)
-
-                entities: list[EntityData] = []
-                if fh.entity_count > 0:
-                    ent_bytes = f.read(fh.entity_count * 40)
-                    if len(ent_bytes) == fh.entity_count * 40:
-                        for i in range(fh.entity_count):
-                            entities.append(
-                                EntityData.unpack(ent_bytes[i * 40 : (i + 1) * 40])
-                            )
-
-                frames.append(Frame(header=fh, entities=entities))
+            while (frame := EpisodeReader._read_frame(f, filepath)) is not None:
+                frames.append(frame)
 
             return header, frames
 
@@ -459,21 +447,7 @@ class EpisodeReader:
     def iterate_file(filepath: str) -> Iterator[tuple[EpisodeHeader, Frame]]:
         """Memory-efficient generator yielding one frame at a time."""
         with open(filepath, "rb") as f:
-            header, _ = EpisodeReader._read_header_and_offset(f)
+            header = EpisodeReader._read_header(f, filepath)
 
-            while True:
-                frame_bytes = f.read(84)
-                if len(frame_bytes) < 84:
-                    break
-                fh = FrameDataHeader.unpack(frame_bytes)
-
-                entities: list[EntityData] = []
-                if fh.entity_count > 0:
-                    ent_bytes = f.read(fh.entity_count * 40)
-                    if len(ent_bytes) == fh.entity_count * 40:
-                        for i in range(fh.entity_count):
-                            entities.append(
-                                EntityData.unpack(ent_bytes[i * 40 : (i + 1) * 40])
-                            )
-
-                yield header, Frame(header=fh, entities=entities)
+            while (frame := EpisodeReader._read_frame(f, filepath)) is not None:
+                yield header, frame
