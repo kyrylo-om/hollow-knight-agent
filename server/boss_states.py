@@ -1,6 +1,13 @@
-"""Boss FSM State mappings for Hollow Knight Telemetry Visualizer."""
+"""Boss FSM state mappings, mirroring BossFsms.cs.
 
-BOSS_FSM_STATES: dict[int, dict[int, str]] = {
+A packed FSM state (FrameDataHeader.boss_fsm_state) is boss_id << 8 | state_id.
+State ids run 1..N per boss; 0 = unknown state.
+"""
+
+import numpy as np
+
+# boss_id -> state_id -> state name (string keys, JSON style)
+BOSS_FSM_STATES: dict[str, dict[str, str]] = {
     "1": {
         "1": "Sleep",
         "2": "Init",
@@ -1593,9 +1600,18 @@ def get_fsm_state_name(packed_state: int) -> str:
     state_id = packed_state & 0xFF
     if state_id == 0:
         return "Unknown / Init (0)"
-    states = BOSS_FSM_STATES.get(boss_id) or BOSS_FSM_STATES.get(str(boss_id))
-    if states:
-        name = states.get(state_id) or states.get(str(state_id))
-        if name:
-            return f"{name} ({state_id})"
-    return f"State_{state_id}"
+    name = BOSS_FSM_STATES.get(str(boss_id), {}).get(str(state_id))
+    return f"{name} ({state_id})" if name else f"State_{state_id}"
+
+
+def fsm_state_names(boss_id: int) -> list[str]:
+    """One-hot column names for a boss: column 0 is the unknown state, column i is state id i."""
+    states = BOSS_FSM_STATES[str(boss_id)]
+    return ["Unknown"] + [states[str(i)] for i in range(1, len(states) + 1)]
+
+
+def fsm_one_hot(packed_states: np.ndarray, boss_id: int) -> np.ndarray:
+    """(T,) packed FSM states -> (T, N + 1) float32 one-hot; unknown or out-of-range ids map to column 0."""
+    n_states = len(BOSS_FSM_STATES[str(boss_id)])
+    state_id = packed_states & 0xFF
+    return np.eye(n_states + 1, dtype=np.float32)[np.where(state_id <= n_states, state_id, 0)]

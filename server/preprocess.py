@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
+from boss_states import fsm_one_hot, fsm_state_names
 from protocol import (
     EXPECTED_MAGIC,
     ActionButtons,
@@ -184,6 +185,7 @@ def _observe(
     return {
         "obs_knight": np.stack(knight, axis=1).astype(np.float32),
         "obs_boss": np.stack(boss, axis=1).astype(np.float32),
+        "obs_fsm": fsm_one_hot(cols["boss_fsm_state"], header.boss_id),
         "obs_critic_extra": np.stack(critic_extra, axis=1).astype(np.float32),
     }
 
@@ -222,7 +224,6 @@ class Preprocessor:
             raise NotImplementedError("include_entities: entity features are not implemented yet")
         self.config = config
         self.boss_id: int | None = None
-        self.fsm_vocab = np.zeros(0, dtype=np.int64)  # Sorted raw boss_fsm_state values; index i -> i + 1
         self.scaler: dict[str, tuple[np.ndarray, np.ndarray]] = {}  # key -> (mean, std); identity for frac/bin
         self._episode: tuple[EpisodeHeader, int] | None = None  # Live episode: (header, boss_hp_max)
 
@@ -279,15 +280,11 @@ class Preprocessor:
         val_ids = sorted(order[:n_val].tolist())
         train_ids = sorted(order[n_val:].tolist())
 
-        # 3. FSM vocabulary from train. A zero low byte is the mod's unknown state and stays at index 0.
-        states = np.unique(np.concatenate([episodes[i].frames["boss_fsm_state"] for i in train_ids]))
-        self.fsm_vocab = states[(states & 0xFF) != 0]
-
-        # 4. Unscaled features, labels and aux values
+        # 3. Unscaled features, labels and aux values
         train_parts = [self._episode_steps(episodes[i], i) for i in train_ids]
         val_parts = [self._episode_steps(episodes[i], i) for i in val_ids]
 
-        # 5. Mirror-augment train
+        # 4. Mirror-augment train
         if cfg.mirror_augment:
             mirrored = []
             for part in train_parts:
@@ -298,7 +295,7 @@ class Preprocessor:
 
         train, val = _concat(train_parts), _concat(val_parts)
 
-        # 6. Fit the scaler on the cont columns of the augmented train set
+        # 5. Fit the scaler on the cont columns of the augmented train set
         for key in ("obs_knight", "obs_boss"):
             cont = np.array([kind == "cont" for _, kind in FEATURES[key]])
             # float64, so the scaler survives the JSON round trip bit-exactly
@@ -306,7 +303,7 @@ class Preprocessor:
             std = np.where(cont, np.maximum(train[key].std(axis=0, dtype=np.float64), STD_FLOOR), 1.0)
             self.scaler[key] = (mean, std)
 
-        # 7. Standardize both splits
+        # 6. Standardize both splits
         for split in (train, val):
             split.update(self._scale(split))
 
@@ -326,7 +323,6 @@ class Preprocessor:
 
         step_cols = {name: column[starts] for name, column in cols.items()}
         steps = _observe(step_cols, ep.header, int(cols["boss_hp"][0]), self.config.fsm_time_clip)
-        steps["fsm_idx"] = self._fsm_index(step_cols["boss_fsm_state"])
 
         steps["label_pressed"] = np.logical_or.reduceat(_buttons(cols["action_pressed"][window]), starts)
         held = np.add.reduceat(_buttons(cols["action_held"][window]).astype(np.float32), starts)
@@ -347,11 +343,6 @@ class Preprocessor:
         steps["episode_outcome"] = np.full(n_steps, ep.outcome, dtype=np.uint8)
         return steps
 
-    def _fsm_index(self, raw: np.ndarray) -> np.ndarray:
-        """Raw boss_fsm_state -> vocabulary index (1..N), 0 for values unseen in train."""
-        idx = np.searchsorted(self.fsm_vocab, raw) + 1
-        return np.where(np.isin(raw, self.fsm_vocab), idx, 0).astype(np.int64)
-
     def _scale(self, obs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         return {
             key: ((obs[key] - mean) / std).astype(np.float32)
@@ -370,14 +361,13 @@ class Preprocessor:
         self._episode = (header, first_frame.boss_hp)
 
     def transform_frame(self, frame: FrameDataHeader) -> dict:
-        """One decision step: obs_knight, obs_boss, obs_critic_extra and fsm_idx."""
+        """One decision step: obs_knight, obs_boss, obs_fsm and obs_critic_extra."""
         assert self._episode is not None, "Call start_episode first"
         header, boss_hp_max = self._episode
 
         cols = _columns([frame])
         obs = _observe(cols, header, boss_hp_max, self.config.fsm_time_clip)
         obs.update(self._scale(obs))
-        obs["fsm_idx"] = self._fsm_index(cols["boss_fsm_state"])
         return {key: value[0] for key, value in obs.items()}
 
     # =========================================================================
@@ -389,12 +379,14 @@ class Preprocessor:
             "magic": EXPECTED_MAGIC,
             "config": asdict(self.config),
             "boss_id": self.boss_id,
-            "fsm_vocab": self.fsm_vocab.tolist(),
             "scaler": {
                 key: {"mean": mean.tolist(), "std": std.tolist()}
                 for key, (mean, std) in self.scaler.items()
             },
-            "features": {key: [name for name, _ in features] for key, features in FEATURES.items()},
+            "features": {
+                **{key: [name for name, _ in features] for key, features in FEATURES.items()},
+                "obs_fsm": fsm_state_names(self.boss_id),
+            },
         }
         Path(path).write_text(json.dumps(artifacts, indent=2))
 
@@ -409,7 +401,6 @@ class Preprocessor:
 
         pre = cls(config)
         pre.boss_id = artifacts["boss_id"]
-        pre.fsm_vocab = np.array(artifacts["fsm_vocab"], dtype=np.int64)
         pre.scaler = {
             key: (np.array(s["mean"], dtype=np.float64), np.array(s["std"], dtype=np.float64))
             for key, s in artifacts["scaler"].items()
